@@ -1,6 +1,6 @@
 /* Author: Mark Faust;   
  * Description: This file defines the two required functions for the branch predictor.
-*/p
+*/
 
 #include "predictor.h"
 
@@ -33,17 +33,11 @@
             if (br->is_conditional)
                 prediction = true;
 		*/
-		int pc;	
-		//Choice Prediction
-
-
-		
-		//Local Predictor
 
 		//local history table
         pc = ((br->instruction_addr)>>2) & LHTADDRMASK; //PC[11:2]
         //get the 10 bit value from the local history table ->i/p: PC value o/p:10 bit value indicating the local_history
-        //local_history_table()
+        //local_history_table() 
 
         //get the local prediction state value from the local predictor table: i/p: 10 bit value calculated above, o/p: state values in the table
         //local_predictor();
