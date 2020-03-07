@@ -1,6 +1,6 @@
 /* Author: Mark Faust;   
  * Description: This file defines the two required functions for the branch predictor.
-*/
+*/p
 
 #include "predictor.h"
 
