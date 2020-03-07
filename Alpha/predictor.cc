@@ -14,7 +14,7 @@
 #define CPHEIGHT 4096
 #define CPWIDTH 2
 
-
+//new changes
  unsigned int local_history_table[(LHTHEIGHT-1):0];
  unsigned int local_prediction_table[(LPTHEIGHT-1):0];
  unsigned int global_prediction_table[(GPTHEIGHT-1):0];
