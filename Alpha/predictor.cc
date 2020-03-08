@@ -14,6 +14,8 @@
 #define CPHEIGHT 4096
 #define CPWIDTH 2
 
+int local_history_table(int);
+
 
  unsigned int local_history_table[(LHTHEIGHT-1):0];
  unsigned int local_prediction_table[(LPTHEIGHT-1):0];
@@ -34,19 +36,19 @@
                 prediction = true;
 		*/
 		int pc;	
+        int entry_avail;    // update if a entry is available in the local history table
 		//Choice Prediction
-
-
-		
 		//Local Predictor
-
 		//local history table
         pc = ((br->instruction_addr)>>2) & LHTADDRMASK; //PC[11:2]
         //get the 10 bit value from the local history table ->i/p: PC value o/p:10 bit value indicating the local_history
-        //local_history_table()
+        entry_avail=local_history_table(pc);//check if the current branch is available in local history table
 
         //get the local prediction state value from the local predictor table: i/p: 10 bit value calculated above, o/p: state values in the table
-        //local_predictor();
+        if(entry_avail){
+            local_predictor(pc);
+        }
+
 
         //get the path history Path_history[11:0]: o/p: 12 bit path history value in the table
         //get_path_history();
@@ -64,6 +66,30 @@
 
             return prediction;   // true for taken, false for not taken
         }
+
+    int local_history_table(int pc)
+    {
+        int i;
+        for(i=0;i<LHTHEIGHT-1;i++)
+        {
+            if(pc == local_history_table[i])
+                return 1;
+            else
+                return 0;
+        }
+    }
+    int local predictor(int pc)
+    {
+        int i;
+        for(i=0;i<LHTHEIGHT-1;i++)
+        {
+            if(pc == local_prediction_table[i])
+                return 1;
+            else
+                return 0;
+        }
+    }
+
 
 
     // Update the predictor after a prediction has been made.  This should accept
