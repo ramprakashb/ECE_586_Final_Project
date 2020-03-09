@@ -54,6 +54,7 @@ int main(int argc, char *argv[]){
 				whole_key = (second_key << 8) & first_key;
 			printf("%02X", (unsigned char) getc);
 			count++;
+			}
 		}
 		else{
 			printf("\t");
@@ -68,95 +69,92 @@ int main(int argc, char *argv[]){
 				printf("%1d", ((second_key >> i) & 1));
 				
 			}
-		}
+		
 			printf("\t");
 
-				if( TWO_BYTE_KEY== whole_key)
-					printf("TWO_BYTE_KEY ");
-					
-				if( MASK_DST_VAL== whole_key)
-					printf("MASK_DST_VAL ");
-					
-				if( TYPE0_DST_VAL== whole_key)
-					printf("TYPE0_DST_VAL ");
+			if( TWO_BYTE_KEY== whole_key)
+				printf("TWO_BYTE_KEY ");
+				
+			if( MASK_DST_VAL== whole_key)
+				printf("MASK_DST_VAL ");
+				
+			if( TYPE0_DST_VAL== whole_key)
+				printf("TYPE0_DST_VAL ");
+							
+			if( TYPE1_DST_VAL== whole_key)
+				printf("TYPE1_DST_VAL ");
+											
+			if( TYPE2_DST_VAL== whole_key)
+				printf("TYPE2_DST_VAL ");
+				 
+			if( READ_DST_VAL== whole_key)
+				printf("READ_DST_VAL ");
+				
+			if( MASK_VADDR1== whole_key)
+				printf("MASK_VADDR1 ");
 								
-				if( TYPE1_DST_VAL== whole_key)
-					printf("TYPE1_DST_VAL ");
-												
-				if( TYPE2_DST_VAL== whole_key)
-					printf("TYPE2_DST_VAL ");
-					 
-				if( READ_DST_VAL== whole_key)
-					printf("READ_DST_VAL ");
+			if( TYPE0_VADDR1== whole_key)   
+				printf("TYPE0_VADDR1 ");
+								
+			if( TYPE1_VADDR1== whole_key)  
+				printf("TYPE1_VADDR1 ");
+				
+			if( TYPE2_VADDR1== whole_key)    
+				printf("TYPE2_VADDR1 ");
+				
+			if( READ_VADDR1== whole_key)   
+				printf("READ_VADDR1 ");
+				
+			if( READ_SRC2_VAL== whole_key)   
+				printf("READ_SRC2_VAL ");
+				
+			if( FLIP_TAKEN== whole_key)     
+				printf("FLIP_TAKEN ");
+				
+			if( READ_STATIC_INFO== whole_key)
+				printf("READ_STATIC_INFO ");
+				
+			if( READ_INSTRUCTION_ADDR== whole_key)
+				printf("READ_INSTRUCTION_ADDR ");
+				
+			if( MASK_BRANCH_TARGET== whole_key)   
+				printf("MASK_BRANCH_TARGET ");
+				
+			if( TYPE0_BRANCH_TARGET== whole_key)  
+				printf("TYPE0_BRANCH_TARGET ");
+				
+			if( TYPE1_BRANCH_TARGET== whole_key)  
+				printf("TYPE1_BRANCH_TARGET ");
+				
+			if( TYPE2_BRANCH_TARGET== whole_key)  
+				printf("TYPE2_BRANCH_TARGET ");
+				
+			if( READ_BRANCH_TARGET== whole_key)  
+				printf("READ_BRANCH_TARGET ");
+								
+			if( READ_SRC1_VAL== whole_key)
+				printf("READ_SRC1_VAL ");
+				
+			if( READ_VADDR2== whole_key)          
+				printf("READ_VADDR2 ");
+				
+			if( UNUSED_KEY_BIT1== whole_key)     
+				printf("UNUSED_KEY_BIT1 ");
+				
+			if( UNUSED_KEY_BIT2== whole_key)      
+				printf("UNUSED_KEY_BIT2 ");
+				
+			if( UNUSED_KEY_BIT3== whole_key)      
+				printf("UNUSED_KEY_BIT3 ");;
 					
-				if( MASK_VADDR1== whole_key)
-					printf("MASK_VADDR1 ");
-									
-				if( TYPE0_VADDR1== whole_key)   
-					printf("TYPE0_VADDR1 ");
-									
-				if( TYPE1_VADDR1== whole_key)  
-					printf("TYPE1_VADDR1 ");
-					
-				if( TYPE2_VADDR1== whole_key)    
-					printf("TYPE2_VADDR1 ");
-					
-				if( READ_VADDR1== whole_key)   
-					printf("READ_VADDR1 ");
-					
-				if( READ_SRC2_VAL== whole_key)   
-					printf("READ_SRC2_VAL ");
-					
-				if( FLIP_TAKEN== whole_key)     
-					printf("FLIP_TAKEN ");
-					
-				if( READ_STATIC_INFO== whole_key)
-					printf("READ_STATIC_INFO ");
-					
-				if( READ_INSTRUCTION_ADDR== whole_key)
-					printf("READ_INSTRUCTION_ADDR ");
-					
-				if( MASK_BRANCH_TARGET== whole_key)   
-					printf("MASK_BRANCH_TARGET ");
-					
-				if( TYPE0_BRANCH_TARGET== whole_key)  
-					printf("TYPE0_BRANCH_TARGET ");
-					
-				if( TYPE1_BRANCH_TARGET== whole_key)  
-					printf("TYPE1_BRANCH_TARGET ");
-					
-				if( TYPE2_BRANCH_TARGET== whole_key)  
-					printf("TYPE2_BRANCH_TARGET ");
-					
-				if( READ_BRANCH_TARGET== whole_key)  
-					printf("READ_BRANCH_TARGET ");
-									
-				if( READ_SRC1_VAL== whole_key)
-					printf("READ_SRC1_VAL ");
-					
-				if( READ_VADDR2== whole_key)          
-					printf("READ_VADDR2 ");
-					
-				if( UNUSED_KEY_BIT1== whole_key)     
-					printf("UNUSED_KEY_BIT1 ");
-					
-				if( UNUSED_KEY_BIT2== whole_key)      
-					printf("UNUSED_KEY_BIT2 ");
-					
-				if( UNUSED_KEY_BIT3== whole_key)      
-					printf("UNUSED_KEY_BIT3 ");;
-					
-			}
 			printf("\n");
 			count = 0;
 		}
-
 		
-	
-	
 	}
-	
+
 	fclose(filep);
+	
 	
 }
 
