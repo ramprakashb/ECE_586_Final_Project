@@ -272,34 +272,34 @@ namespace cbp
         // bit (TWO_BYTE_KEY) that specifies whether this is the case.  The key
         // format is designed to reduce the number of times a 2-byte key is needed.
         typedef uint16_t KEY_TYPE;
-        /* first byte */
-        static const KEY_TYPE TWO_BYTE_KEY          = (KEY_TYPE(0x1) << 0 );
-        static const KEY_TYPE MASK_DST_VAL          = (KEY_TYPE(0x3) << 1 );
-        static const KEY_TYPE TYPE0_DST_VAL         =  (KEY_TYPE(0) << 1 );
-        static const KEY_TYPE TYPE1_DST_VAL         =  (KEY_TYPE(1) << 1 );
-        static const KEY_TYPE TYPE2_DST_VAL         =  (KEY_TYPE(2) << 1 );
-        static const KEY_TYPE READ_DST_VAL          =  (KEY_TYPE(3) << 1 );
-        static const KEY_TYPE MASK_VADDR1           = (KEY_TYPE(0x3) << 3 );
-        static const KEY_TYPE TYPE0_VADDR1          =  (KEY_TYPE(0) << 3 );
-        static const KEY_TYPE TYPE1_VADDR1          =  (KEY_TYPE(1) << 3 );
-        static const KEY_TYPE TYPE2_VADDR1          =  (KEY_TYPE(2) << 3 );
-        static const KEY_TYPE READ_VADDR1           =  (KEY_TYPE(3) << 3 );
-        static const KEY_TYPE READ_SRC2_VAL         = (KEY_TYPE(0x1) << 5 );
-        static const KEY_TYPE FLIP_TAKEN            = (KEY_TYPE(0x1) << 6 );
-        static const KEY_TYPE READ_STATIC_INFO      = (KEY_TYPE(0x1) << 7 );
-        /* second byte */
-        static const KEY_TYPE READ_INSTRUCTION_ADDR = (KEY_TYPE(0x1) << 8 );
-        static const KEY_TYPE MASK_BRANCH_TARGET    = (KEY_TYPE(0x3) << 9 );
-        static const KEY_TYPE TYPE0_BRANCH_TARGET   =  (KEY_TYPE(0) << 9 );
-        static const KEY_TYPE TYPE1_BRANCH_TARGET   =  (KEY_TYPE(1) << 9 );
-        static const KEY_TYPE TYPE2_BRANCH_TARGET   =  (KEY_TYPE(2) << 9 );
-        static const KEY_TYPE READ_BRANCH_TARGET    =  (KEY_TYPE(3) << 9 );
-        static const KEY_TYPE READ_SRC1_VAL         = (KEY_TYPE(0x1) << 11);
-        static const KEY_TYPE READ_VADDR2           = (KEY_TYPE(0x1) << 12);
-        static const KEY_TYPE UNUSED_KEY_BIT1       = (KEY_TYPE(0x1) << 13);
-        static const KEY_TYPE UNUSED_KEY_BIT2       = (KEY_TYPE(0x1) << 14);
-        static const KEY_TYPE UNUSED_KEY_BIT3       = (KEY_TYPE(0x1) << 15);
-    
+        /* first byte */															// First byte
+        static const KEY_TYPE TWO_BYTE_KEY          = (KEY_TYPE(0x1) << 0 );		// 0000_0001
+        static const KEY_TYPE MASK_DST_VAL          = (KEY_TYPE(0x3) << 1 );		// 0000_0110
+        static const KEY_TYPE TYPE0_DST_VAL         =  (KEY_TYPE(0) << 1 );			// 0000_0000
+        static const KEY_TYPE TYPE1_DST_VAL         =  (KEY_TYPE(1) << 1 );			// 0000_0010
+        static const KEY_TYPE TYPE2_DST_VAL         =  (KEY_TYPE(2) << 1 );			// 0000_0100
+        static const KEY_TYPE READ_DST_VAL          =  (KEY_TYPE(3) << 1 );			// 0000_0110
+        static const KEY_TYPE MASK_VADDR1           = (KEY_TYPE(0x3) << 3 );		// 0001_1000
+        static const KEY_TYPE TYPE0_VADDR1          =  (KEY_TYPE(0) << 3 );			// 0000_0000
+        static const KEY_TYPE TYPE1_VADDR1          =  (KEY_TYPE(1) << 3 );			// 0000_1000
+        static const KEY_TYPE TYPE2_VADDR1          =  (KEY_TYPE(2) << 3 );			// 0001_0000
+        static const KEY_TYPE READ_VADDR1           =  (KEY_TYPE(3) << 3 );			// 0001_1000
+        static const KEY_TYPE READ_SRC2_VAL         = (KEY_TYPE(0x1) << 5 );		// 0010_0000
+        static const KEY_TYPE FLIP_TAKEN            = (KEY_TYPE(0x1) << 6 );		// 0100_0000
+        static const KEY_TYPE READ_STATIC_INFO      = (KEY_TYPE(0x1) << 7 );		// 1000_0000
+		
+        /* second byte */															// Second byte
+        static const KEY_TYPE READ_INSTRUCTION_ADDR = (KEY_TYPE(0x1) << 8 );		// 0000_0001
+        static const KEY_TYPE MASK_BRANCH_TARGET    = (KEY_TYPE(0x3) << 9 );		// 0000_0110
+        static const KEY_TYPE TYPE0_BRANCH_TARGET   =  (KEY_TYPE(0) << 9 ); 		// 0000_0000
+        static const KEY_TYPE TYPE1_BRANCH_TARGET   =  (KEY_TYPE(1) << 9 ); 		// 0000_0010
+        static const KEY_TYPE TYPE2_BRANCH_TARGET   =  (KEY_TYPE(2) << 9 ); 		// 0000_0100
+        static const KEY_TYPE READ_BRANCH_TARGET    =  (KEY_TYPE(3) << 9 ); 		// 0000_0110
+        static const KEY_TYPE READ_SRC1_VAL         = (KEY_TYPE(0x1) << 11);		// 0000_1000
+        static const KEY_TYPE READ_VADDR2           = (KEY_TYPE(0x1) << 12);		// 0001_0000
+        static const KEY_TYPE UNUSED_KEY_BIT1       = (KEY_TYPE(0x1) << 13);		// 0010_0000
+        static const KEY_TYPE UNUSED_KEY_BIT2       = (KEY_TYPE(0x1) << 14);		// 0100_0000
+        static const KEY_TYPE UNUSED_KEY_BIT3       = (KEY_TYPE(0x1) << 15);		// 1000_0000
         // For each CBP_INST member, there is a pair of functions: a get function and
         // a put function.  When a CBP_INST is read, the get functions are called to
         // construct each member.  When a CBP_INST is written, the put functions are
@@ -377,7 +377,7 @@ namespace cbp
         // statistics
         typedef uint64_t EVENT_COUNTER;
         EVENT_COUNTER stat_cbp_inst;
-        EVENT_COUNTER stat_two_byte_key;
+        EVENT_COUNTER stat_two_byte_+;
         EVENT_COUNTER stat_type0_dst_val;
         EVENT_COUNTER stat_type1_dst_val;
         EVENT_COUNTER stat_type2_dst_val;
