@@ -21,6 +21,8 @@ int global_predictor(unsigned int);
 int choice_predictor(unsigned int);
 bool mux_logic(unsigned int,unsigned int,unsigned int);
 
+int entry_avail;
+
  unsigned int local_history_table[(LHTHEIGHT-1)];
  unsigned int local_prediction_table[(LPTHEIGHT-1)];
  unsigned int global_prediction_table[(GPTHEIGHT-1)];
@@ -40,7 +42,7 @@ bool mux_logic(unsigned int,unsigned int,unsigned int);
                 prediction = true;
 		*/
 		unsigned int pc;	
-        unsigned int entry_avail;    // update if a entry is available in the local history table
+        //int entry_avail;    // update if a entry is available in the local history table
         unsigned int local_predict_val;
         unsigned int global_predict_val;
         unsigned int path_history_val;
@@ -87,17 +89,16 @@ bool mux_logic(unsigned int,unsigned int,unsigned int);
     {
         int i;
         int set;
-        for(i=0;i<LHTHEIGHT-1;i++)
-        {
-            if(pc == local_history_table[i])
+      
+            if(local_history_table[pc] == 0)
                 set = 1;
             else
                 set =  0;
-        }
+        
         if(set)
-            return 1;
+            return local_history_table[pc];
         else    
-            return 0;
+            return -1;
     }
     
     int local_predictor(unsigned int pc)
@@ -124,7 +125,7 @@ bool mux_logic(unsigned int,unsigned int,unsigned int);
                 return 7;
             }
         }
-        return 8; //indicating value not available in the local predictor table
+        return -1; //indicating value not available in the local predictor table
     }
 
     int global_predictor(unsigned int path_history_val)
@@ -143,7 +144,7 @@ bool mux_logic(unsigned int,unsigned int,unsigned int);
                 return 3;
             }
         }
-        return 8;
+        return -1;
     }
 
 
@@ -164,7 +165,7 @@ bool mux_logic(unsigned int,unsigned int,unsigned int);
                 return 1;
             }
         }
-        return 8;
+        return -1;
     }
 
     bool mux_logic(unsigned int choice_predict_val, unsigned int global_predict_val, unsigned int local_predict_val)
@@ -245,6 +246,13 @@ bool mux_logic(unsigned int,unsigned int,unsigned int);
 
         }
 
+    struct st{
+        int top;
+        unsigned int capacity;
+        int* array;
+    };
+
+
     int update_local_predictor(unsigned int pc)
     {
         int i;
@@ -255,6 +263,10 @@ bool mux_logic(unsigned int,unsigned int,unsigned int);
                 set = 1;
             else    
                 set = 0;
+        }
+        if(set == 0)
+        {
+            
         }
     }
 
