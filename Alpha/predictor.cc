@@ -65,7 +65,7 @@
     // argument (taken) indicating whether or not the branch was taken.
     void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken)
         {
-		/* replace this code with your own
+	/////////////////////	/* replace this code with your own
 			printf("%1d\n",taken);
 			*/
 
@@ -82,9 +82,45 @@
         //update_choice_predictor
 
         //update path_history(): i/p: taken
-        //update_path_history(taken);
-
-
-        }
-
-	
+        //update_path_history(taken);/////////////////////
+		
+		
+		path_history = ((br->instruction_addr)>>2) & 16384; 
+		
+		int update_local_history_table(int pc)
+		{
+		local_history_table[pc]= state based on taken;
+		}
+		}
+		
+		int update_local_predictor(int local_history_table)
+		{
+		local_prediction_table[local_history_table]= state based on taken;
+		}
+		
+		
+		int update_global_predictor(int path_history)
+		{
+		global_prediction_table[path_history]= state based on taken;
+		}
+		
+		int update_choice_predictor(int path_history)
+		{
+		choice_prediction_table[path_history]= state based on taken;
+		}
+		
+		int update_path_history(bool taken)
+		{
+		int i;
+		for (i=0;i<12;i++)
+		{
+		if(taken == 1)
+		path_history[i] = 1;
+		else if(taken == 0)
+		path_history[i]= 0;
+		}
+		}
+		}
+		
+		
+		
