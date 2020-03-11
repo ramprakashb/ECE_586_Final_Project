@@ -20,6 +20,8 @@
 #define LHTVALMASK 1023    ///local history table's 10 bits
 #define GLOBAL_PREDICTION 1
 #define LOCAL_PREDICTION 0
+#define SETLSB 0x1
+#define CLRLSB 0xFFE
 
 // Data Structures
 static unsigned int local_history_table[LHTHEIGHT] = {0};
@@ -70,9 +72,22 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	// local_prediction_table index		=	local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]
 	// local_prediction value			= 	local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]]
 	
-	if(taken) 	local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]] == 0x7 	? local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]]
-																													: local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]]++;
-	else 		local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]] == 0x0 	? local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]]
-																													: local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]]--;
-																												
+	 if(taken) 	local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]] =
+				local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]] == 0x7	? 
+				local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]]			: 
+				local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]]++;
+
+	else 		local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]] =
+				local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]] == 0x0 	? 
+				local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]]			: 
+				local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]]--;
+	
+	/* Local History Update logic	*/
+	// local_history_table index		=	( LHTADDRMASK & (br->instruction_addr >>2) )
+	// local_history_table value		=	local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]
+
+	local_history_table[( LHTADDRMASK & ( br->instruction_addr >> 2 ))] = taken ?
+	(LHTVALMASK & (( local_history_table[( LHTADDRMASK & ( br->instruction_addr >> 2 ))] << 1 ) | SETLSB )):		// Shift in 1
+	(LHTVALMASK & (( local_history_table[( LHTADDRMASK & ( br->instruction_addr >> 2 ))] << 1 ) | CLRLSB ));		// Shift in 0 
+
 }
