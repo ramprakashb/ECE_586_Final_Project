@@ -46,13 +46,6 @@ static unsigned int local_history_table[LHTHEIGHT] = {0};
 static unsigned int local_prediction_table[LPTHEIGHT] = {0};
 static unsigned int global_prediction_table[GPTHEIGHT] = {0};
 static unsigned int choice_prediction_table[CPHEIGHT] = {0};
-
-/* Variables	*/
-static unsigned int local_history_table_val = 0;
-static unsigned int local_prediction_table_val = 0;
-static unsigned int global_prediction_table_val = 0;
-static unsigned int choice_prediction_table_val = 0;
-static unsigned int b_index = 0;
 static unsigned int path_history = 0;
 long unsigned int t = 0;
 
@@ -62,31 +55,20 @@ void debug(unsigned int val, int tag);
 
 bool PREDICTOR::get_prediction(const branch_record_c* br, const op_state_c* os){
 
-	/* Index from PC	*/
-	b_index = ( LHTADDRMASK & (br->instruction_addr >>2) );
-
 	/* Local Prediction logic	*/
 	// local_history_table index		=	( LHTADDRMASK & (br->instruction_addr >>2) )
 	// local_prediction_table index		=	local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]
 	// local_prediction					= 	( 0x1 & ( local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]] >> (LPTWIDTH - 1) ) )
 
-	local_history_table_val = local_history_table[b_index];
-
-	local_prediction_table_val = ( 0x1 & local_prediction_table[local_history_table_val] >> (LPTWIDTH -1 )); 
-
 	/* Global Prediction Logic	*/
 	// global_prediction_table index	=	path_history
 	// global_prediction				= 	( 0x1 & ( global_prediction_table[path_history] >> (GPTWIDTH - 1) ) )
-
-	global_prediction_table_val = ( 0x1 & (global_prediction_table[path_history] >> (GPTWIDTH - 1)));
 
 	/* Choice Prediction Logic	*/
 	// choice_prediction_table index	=	path_history
 	// choice_prediction				=	( 0x1 & ( choice_prediction_table[path_history] >> (CPWIDTH - 1) ) )
 
-	choice_prediction_table_val = ( 0x1 & (choice_prediction_table[path_history] >> (CPWIDTH - 1)));
-
-	#ifdef BS_VERBOSE	// Debugging
+	#ifdef BS_VERBOSE
 	t++;
 	if(t == 1) debug (0, HEAD);
 	debug( 0, LINE);
@@ -97,14 +79,10 @@ bool PREDICTOR::get_prediction(const branch_record_c* br, const op_state_c* os){
 	#endif
 
 	/* Multiplexer */
-
-	if( br->branch_target < br->instruction_addr) return 1;
-
 	if( !br->is_conditional || br->is_call || br->is_return) return 1;
-
-	return	choice_prediction_table_val	?	// GLOBAL_PREDICTION or LOCAL_PREDICTION ? 
-			global_prediction_table_val:	// GLOBAL_PREDICTION
-			local_prediction_table_val; 	// LOCAL_PREDICTION
+	return	( 0x1 & ( choice_prediction_table[path_history] >> (CPWIDTH - 1) ) ) 		?	// GLOBAL_PREDICTION or LOCAL_PREDICTION ? 
+			( 0x1 & ( global_prediction_table[path_history] >> (GPTWIDTH - 1) ) )		:	// GLOBAL_PREDICTION
+			( 0x1 & ( local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]] >> (LPTWIDTH - 1) ) ); // LOCAL_PREDICTION
 
 }
     
@@ -122,10 +100,12 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	// local_prediction_table index		=	local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]
 	// local_prediction value			= 	local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]]
 	
-	if(taken && ( local_prediction_table_val >= 0x7 )) local_prediction_table[local_history_table_val] = 0x7;	
-	else if(taken) local_prediction_table[local_history_table_val]++;
-	else if(!taken && ( local_prediction_table_val == 0x0 )) local_prediction_table[local_history_table_val] = 0x0;	
-	else local_prediction_table[local_history_table_val]--;
+	if(taken && ( local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]] == 0x7 ))
+		local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]] &= LPTVAL;
+	else if(taken) local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]]++;
+	else if(!taken && ( local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]] == 0x0 ))
+		local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]] &= LPTVAL;
+	else local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >> 2) )]]--;
 	
 	#ifdef BS_VERBOSE
 	debug( ( 0x1 & ( local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]] >> (LPTWIDTH - 1) ) ), ULP);
@@ -135,9 +115,9 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	// local_history_table index		=	( LHTADDRMASK & (br->instruction_addr >>2) )
 	// local_history_table value		=	local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]
 
-	local_history_table[b_index] = taken ?
-	(LHTVALMASK & (( local_history_table_val << 1 ) | SETLSB )):		// Shift in 1
-	(LHTVALMASK & (( local_history_table_val << 1 ) & CLRLSB ));		// Shift in 0 
+	local_history_table[( LHTADDRMASK & ( br->instruction_addr >> 2 ))] = taken ?
+	(LHTVALMASK & (( local_history_table[( LHTADDRMASK & ( br->instruction_addr >> 2 ))] << 1 ) | SETLSB )):		// Shift in 1
+	(LHTVALMASK & (( local_history_table[( LHTADDRMASK & ( br->instruction_addr >> 2 ))] << 1 ) & CLRLSB ));		// Shift in 0 
 
 	#ifdef BS_VERBOSE
 	debug( local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )], ULH );
@@ -147,9 +127,9 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	// global_prediction_table index	=	path_history
 	// global_prediction_table value	=	global_prediction_table[path_history]
 	
-	if(taken && ( global_prediction_table[path_history] >= 0x3 )) global_prediction_table[path_history] = 0x3;
+	if(taken && ( global_prediction_table[path_history] == 0x3 )) global_prediction_table[path_history] &= GPTVAL;
 	else if(taken) global_prediction_table[path_history]++;
-	else if(!taken && ( global_prediction_table[path_history] == 0x0 ))	global_prediction_table[path_history] = 0x0;
+	else if(!taken && ( global_prediction_table[path_history] == 0x0 ))	global_prediction_table[path_history] &= GPTVAL;
 	else global_prediction_table[path_history]--;
 	
 	#ifdef BS_VERBOSE
@@ -160,17 +140,11 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	// choice_prediction_table index	=	path_history
 	// choice_prediction_table value	=	choice_prediction_table[path_history]
 	
-	if((global_prediction_table_val == taken) && (local_prediction_table_val != taken)){	// 1/0
-		if(choice_prediction_table[path_history] == 0x3)
-			choice_prediction_table[path_history] = choice_prediction_table[path_history]; 
-		else choice_prediction_table[path_history]++;			// Move to higher state.
-	}
-	if((global_prediction_table_val != taken) && (local_prediction_table_val == taken)){ // 0/1
-		if(choice_prediction_table[path_history] == 0x0)
-			choice_prediction_table[path_history] = choice_prediction_table[path_history]; 
-		else choice_prediction_table[path_history]--;			// Move to lower state.
-	}
-
+	if(taken && ( choice_prediction_table[path_history] == 0x3 )) choice_prediction_table[path_history] &= CPVAL;
+	else if(taken) choice_prediction_table[path_history]++;
+	else if(!taken && ( choice_prediction_table[path_history] == 0x0 ))	choice_prediction_table[path_history] &= CPVAL;
+	else choice_prediction_table[path_history]--;
+	
 	#ifdef BS_VERBOSE
 	debug( ( 0x1 & ( choice_prediction_table[path_history] >> (CPWIDTH - 1) ) ), UGL);
 	#endif
