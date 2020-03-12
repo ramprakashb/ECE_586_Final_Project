@@ -40,6 +40,7 @@
 #define UGL 9
 #define LINE 10
 #define HEAD 11
+#define NEWLINE 12
 
 // Data Structures
 static unsigned int local_history_table[LHTHEIGHT] = {0};
@@ -89,6 +90,7 @@ bool PREDICTOR::get_prediction(const branch_record_c* br, const op_state_c* os){
 	/* Debug	*/
 	t++;
 	if(t == 1) debug (0, HEAD);
+	debug( 0, NEWLINE);
 	debug( 0, LINE);
 	debug( ( 0x1 & ( choice_prediction_table[path_history] >> (CPWIDTH - 1) ) ), PGL);
 	debug( ( 0x1 & ( global_prediction_table[path_history] >> (GPTWIDTH - 1) ) ), PGP);
@@ -116,7 +118,6 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	/* Debug	*/
 	debug(taken, TAKEN);
 	
-
 	/* Local Prediction Update logic	*/
 	// local_history_table index		=	( LHTADDRMASK & (br->instruction_addr >>2) )
 	// local_prediction_table index		=	local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]
@@ -170,6 +171,7 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 
 	/*	Debug	*/
 	debug( choice_prediction_table[path_history] , UGL);
+	debug(0, NEWLINE);
 
 	/* Path History Update	*/
 	
@@ -181,33 +183,46 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 
 void debug(unsigned int val, int tag){
 	#ifdef	BS_VERBOSE
-		FILE * fh = NULL;
-		fh = fopen("log.txt", "a");
-
-		switch(tag){
-			case PGL:	fprintf(fh, "%u\t", val);
-				break;
-			case PGP:	fprintf(fh, "%u\t", val);
-				break;
-			case PLP:	fprintf(fh, "%u\t", val);
-				break;
-			case PLH:	fprintf(fh, "%u\t", val);
-				break;
-			case TAKEN:	fprintf(fh, "%u\t", val);
-				break;
-			case ULP:	fprintf(fh, "%u\t", val);
-				break;
-			case ULH:	fprintf(fh, "%u\t", val);
-				break;
-			case UGP:	fprintf(fh, "%u\t", val);
-				break;
-			case UGL:	fprintf(fh, "%u\n", val);
-				break;
-			case LINE:	fprintf(fh, "%lu\t", t);
-				break;
-			case HEAD:	fprintf(fh, "LINE\tP-G|L\tP-GP\tP-LP\tP-LH\ttaken\tU-LP\tU-LH\tU-GP\tU-G|L\n");
-				break;
+	FILE * fh = NULL;
+	fh = fopen("log.txt", "a");
+	
+	char binary[13] = {0};
+	
+	if(tag != LINE){
+		for(char i=12; i > 0 ; i--){
+			if((val >> (i - 1)) & 0x1) binary[11 - (i-1)] = '1';
+			else binary[11 - (i -1)] = '0';
 		}
-		fclose(fh);
+	}
+
+
+	switch(tag){
+		case PGL:	fprintf(fh, "%s\t", binary);
+			break;
+		case PGP:	fprintf(fh, "%s\t", binary);
+			break;
+		case PLP:	fprintf(fh, "%s\t", binary);
+			break;
+		case PLH:	fprintf(fh, "%s\t", binary);
+			break;
+		case TAKEN:	fprintf(fh, "%-12u\t", val);
+			break;
+		case ULP:	fprintf(fh, "%s\t", binary);
+			break;
+		case ULH:	fprintf(fh, "%s\t", binary);
+			break;
+		case UGP:	fprintf(fh, "%s\t", binary);
+			break;
+		case UGL:	fprintf(fh, "%s", binary);
+			break;
+		case NEWLINE:fprintf(fh, "\r\n");
+			break;
+		case LINE:	fprintf(fh, "%-12lu\t", t);
+			break;
+		case HEAD:	fprintf(fh,"%-12s\t%-12s\t%-12s\t%-12s\t%-12s\t%-12s\t%-12s\t%-12s\t%-12s\t%-12s",
+								"LINE","P-G|L","P-GP","P-LP","P-LH","taken","U-LP","U-LH","U-GP","U-G|L");
+			break;
+	}
+	fclose(fh);
 	#endif
 }
