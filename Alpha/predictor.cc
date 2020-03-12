@@ -28,7 +28,7 @@
 #define CLRLSB 0xFFE
 
 // Debug
-//#define BS_VERBOSE
+#define BS_VERBOSE
 #define PGL 1
 #define PGP 2
 #define PLP 3
@@ -86,7 +86,7 @@ bool PREDICTOR::get_prediction(const branch_record_c* br, const op_state_c* os){
 
 	choice_prediction_table_val = ( 0x1 & (choice_prediction_table[path_history] >> (CPWIDTH - 1)));
 
-	#ifdef BS_VERBOSE	// Debugging
+	/* Debug	*/
 	t++;
 	if(t == 1) debug (0, HEAD);
 	debug( 0, LINE);
@@ -94,7 +94,7 @@ bool PREDICTOR::get_prediction(const branch_record_c* br, const op_state_c* os){
 	debug( ( 0x1 & ( global_prediction_table[path_history] >> (GPTWIDTH - 1) ) ), PGP);
 	debug( ( 0x1 & ( local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]] >> (LPTWIDTH - 1) ) ), PLP);
 	debug( local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )], PLH );
-	#endif
+
 
 	/* Multiplexer */
 
@@ -113,9 +113,9 @@ bool PREDICTOR::get_prediction(const branch_record_c* br, const op_state_c* os){
 // argument (taken) indicating whether or not the branch was taken.
 void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken){
 	
-	#ifdef BS_VERBOSE	
+	/* Debug	*/
 	debug(taken, TAKEN);
-	#endif
+	
 
 	/* Local Prediction Update logic	*/
 	// local_history_table index		=	( LHTADDRMASK & (br->instruction_addr >>2) )
@@ -127,10 +127,9 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	else if(!taken && ( local_prediction_table_val == 0x0 )) local_prediction_table[local_history_table_val] = 0x0;	
 	else local_prediction_table[local_history_table_val]--;
 	
-	#ifdef BS_VERBOSE
-	debug( ( 0x1 & ( local_prediction_table[local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]] >> (LPTWIDTH - 1) ) ), ULP);
-	#endif
-
+	/*	Debug	*/
+	debug( local_prediction_table[local_history_table_val], ULP);
+	
 	/* Local History Update logic	*/
 	// local_history_table index		=	( LHTADDRMASK & (br->instruction_addr >>2) )
 	// local_history_table value		=	local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )]
@@ -139,9 +138,8 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	(LHTVALMASK & (( local_history_table_val << 1 ) | SETLSB )):		// Shift in 1
 	(LHTVALMASK & (( local_history_table_val << 1 ) & CLRLSB ));		// Shift in 0 
 
-	#ifdef BS_VERBOSE
-	debug( local_history_table[( LHTADDRMASK & (br->instruction_addr >>2) )], ULH );
-	#endif
+	/*	Debug	*/
+	debug( local_history_table[b_index], ULH );
 
 	/* Global Prediction Update	*/
 	// global_prediction_table index	=	path_history
@@ -152,9 +150,8 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	else if(!taken && ( global_prediction_table[path_history] == 0x0 ))	global_prediction_table[path_history] = 0x0;
 	else global_prediction_table[path_history]--;
 	
-	#ifdef BS_VERBOSE
-	debug( ( 0x1 & ( global_prediction_table[path_history] >> (GPTWIDTH - 1) ) ), UGP);
-	#endif
+	/*	Debug	*/
+	debug( ( global_prediction_table[path_history] ), UGP);
 
 	/* Choice Prediction Update	*/
 	// choice_prediction_table index	=	path_history
@@ -165,15 +162,14 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 			choice_prediction_table[path_history] = choice_prediction_table[path_history]; 
 		else choice_prediction_table[path_history]++;			// Move to higher state.
 	}
-	if((global_prediction_table_val != taken) && (local_prediction_table_val == taken)){ // 0/1
+	if((global_prediction_table_val != taken) && (local_prediction_table_val == taken)){ 	// 0/1
 		if(choice_prediction_table[path_history] == 0x0)
 			choice_prediction_table[path_history] = choice_prediction_table[path_history]; 
 		else choice_prediction_table[path_history]--;			// Move to lower state.
 	}
 
-	#ifdef BS_VERBOSE
-	debug( ( 0x1 & ( choice_prediction_table[path_history] >> (CPWIDTH - 1) ) ), UGL);
-	#endif
+	/*	Debug	*/
+	debug( choice_prediction_table[path_history] , UGL);
 
 	/* Path History Update	*/
 	
@@ -184,6 +180,7 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 }
 
 void debug(unsigned int val, int tag){
+	#ifdef	BS_VERBOSE
 		FILE * fh = NULL;
 		fh = fopen("log.txt", "a");
 
@@ -212,4 +209,5 @@ void debug(unsigned int val, int tag){
 				break;
 		}
 		fclose(fh);
+	#endif
 }
