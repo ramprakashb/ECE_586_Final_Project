@@ -55,14 +55,14 @@ main(int argc, char* argv[])
         // ************************************************************
 
         // get_prediction() returns the prediction your predictor would like to make
-        bool predicted_taken = predictor.get_prediction(&br, NULL);
+        bool predicted_taken = predictor.get_prediction(&br /* , cbptr.osptr*/);
 
         // predict_branch() tells the trace reader how you have predicted the branch
         /* bool actual_taken    = cbptr.predict_branch(predicted_taken); */
             
         // finally, update_predictor() is used to update your predictor with the
         // correct branch result
-        predictor.update_predictor(&br, NULL, actual_taken);
+        predictor.update_predictor(&br, /* cbptr.osptr, */ actual_taken);
     }
 }
 
