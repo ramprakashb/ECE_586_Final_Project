@@ -21,32 +21,33 @@ main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    FILE *tracefile = NULL;
+ //   FILE *tracefile = NULL;
 
-    if( (tracefile = fopen(argv[1], "r") ) == NULL) printf("Open File Failed----!\n");
+   // if( (tracefile = fopen(argv[1], "r") ) == NULL) printf("Open File Failed----!\n");
 
-    bool actual_taken;
+  //  bool actual_taken;
 
-    //cbp_trace_reader_c cbptr = cbp_trace_reader_c(argv[0]);
+   // cbp_trace_reader_c cbptr = cbp_trace_reader_c(argv[0]);
+   cbp_trace_reader_c cbptr = cbp_trace_reader_c(argv[1]);
     branch_record_c br;
 
-    char x[256] = {0};
-    char y[256] = {0};
+  //  char x[256] = {0};
+   // char y[256] = {0};
 
    //printf("%-12s\t", "Trace File");
    //printf("%-12s\t", "Instruction Address");
    //printf("%-12s\n", "Taken");
 
     // read the trace, one branch at a time, placing the branch info in br
-    while (fscanf(tracefile, "%s %s\n", &x, &y) != EOF) {
-
+    //while (fscanf(tracefile, "%s %s\n", &x, &y) != EOF) {
+    while (cbptr.get_branch_record(&br)) {
         //printf("%-12s\t", x);
 
-        br.instruction_addr = atoi(x);
+      //  br.instruction_addr = atoi(x);
 
         //printf("%-18u\t", br.instruction_addr);
 
-        actual_taken = 0x1 && atoi(y);
+     //   actual_taken = 0x1 && atoi(y);
 
         //printf("%-12u\n", actual_taken);
 
@@ -55,14 +56,15 @@ main(int argc, char* argv[])
         // ************************************************************
 
         // get_prediction() returns the prediction your predictor would like to make
-        bool predicted_taken = predictor.get_prediction(&br, NULL);
-
+       // bool predicted_taken = predictor.get_prediction(&br, NULL);
+		bool predicted_taken = predictor.get_prediction(&br, cbptr.osptr);
         // predict_branch() tells the trace reader how you have predicted the branch
-        /* bool actual_taken    = cbptr.predict_branch(predicted_taken); */
+         bool actual_taken    = cbptr.predict_branch(predicted_taken); 
             
         // finally, update_predictor() is used to update your predictor with the
         // correct branch result
-        predictor.update_predictor(&br, NULL, actual_taken);
+      //  predictor.update_predictor(&br, NULL, actual_taken);
+	  predictor.update_predictor(&br, cbptr.osptr, actual_taken);
     }
 }
 

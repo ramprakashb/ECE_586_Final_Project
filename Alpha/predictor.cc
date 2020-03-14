@@ -28,7 +28,7 @@
 #define CLRLSB 0xFFE
 
 // Debug
-#define BS_VERBOSE
+//#define BS_VERBOSE
 #define PGL 1
 #define PGP 2
 #define PLP 3
@@ -67,17 +67,17 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 
 	/* Index from PC	*/
 	b_index = ( LHTADDRMASK & (br->instruction_addr >>2) );
-	
+	//printf("%h\n",b_index);
 	/* Local Prediction logic	*/
 	local_history_table_val = local_history_table[b_index];
 	local_prediction_table_val = ( 0x1 & (local_prediction_table[local_history_table_val] >> (LPTWIDTH -1 ))); 
-
+	//printf("%h\n",local_prediction_table_val);
 	/* Global Prediction Logic	*/
 	global_prediction_table_val = ( 0x1 & (global_prediction_table[path_history] >> (GPTWIDTH - 1)));
-
+	//printf("%h\n",global_prediction_table_val);
 	/* Choice Prediction Logic	*/
 	choice_prediction_table_val = ( 0x1 & (choice_prediction_table[path_history] >> (CPWIDTH - 1)));
-
+	//printf("%h\n",choice_prediction_table_val);
 	/* Debug	*/
 	t++;
 	if(t == 1){ debug (0, HEAD);
@@ -93,8 +93,8 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 
 
 	/* Multiplexer */
-	if( br->branch_target < br->instruction_addr) return 1;
-	if( !(br->is_conditional) || br->is_call || br->is_return) return 1;
+	//if( br->branch_target < br->instruction_addr) return 1;
+	//if( !(br->is_conditional) || br->is_call || br->is_return) return 1;
 	return	choice_prediction_table_val	?	// GLOBAL_PREDICTION or LOCAL_PREDICTION ? 
 			global_prediction_table_val:	// GLOBAL_PREDICTION
 			local_prediction_table_val; 	// LOCAL_PREDICTION
@@ -109,26 +109,98 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	/* Debug	*/	debug(taken, TAKEN);
 
 	/* Choice Prediction Update	*/
-	if(global_prediction_table_val == taken){
-		if(!(local_prediction_table_val == taken)){	// 1/0
-			if(choice_prediction_table[path_history] >= 0x3)
-				choice_prediction_table[path_history] = 0x3; 
-			else choice_prediction_table[path_history]++;
-					// Move to higher state.
-		}
+	// if(global_prediction_table_val == !taken){
+	// 	if(local_prediction_table_val == taken){	// 1/0
+	// 		if(choice_prediction_table[path_history] >= 0x3)
+	// 			choice_prediction_table[path_history] = 0x3; 
+	// 		else choice_prediction_table[path_history]++;
+	// 				// Move to higher state.
+	// 	}
+	// }
+	// if(global_prediction_table_val == taken)
+	// 	if(local_prediction_table_val == !taken){ 	// 0/1
+	// 		if(choice_prediction_table[path_history] == 0x0)
+	// 			choice_prediction_table[path_history] = 0x0; 
+	// 		else choice_prediction_table[path_history]--;
+	// }
+
+	if((global_prediction_table_val ^ taken)&&(local_history_table_val & taken)) //checking global predictor predicted correctly and checking local predictor predicted correctly
+	{ 
+		if(choice_prediction_table[path_history] == 0)
+			choice_prediction_table[path_history] = 1;
+		else if(choice_prediction_table[path_history] == 1)
+			choice_prediction_table[path_history] = 2;
+		else if(choice_prediction_table[path_history] == 2)
+			choice_prediction_table[path_history] = 3;
+		else if(choice_prediction_table[path_history] == 3)
+			choice_prediction_table[path_history] = 3;
 	}
-	else if(local_prediction_table_val == taken){ 	// 0/1
-			if(choice_prediction_table[path_history] == 0x0)
-				choice_prediction_table[path_history] = 0x0; 
-			else choice_prediction_table[path_history]--;
+	else if((global_prediction_table_val ^ taken)&&(local_history_table_val ^ taken))
+	{
+		if(choice_prediction_table[path_history] == 0)
+			choice_prediction_table[path_history] = 0;
+		else if(choice_prediction_table[path_history] == 1)
+			choice_prediction_table[path_history] = 1;
+		else if(choice_prediction_table[path_history] == 2)
+			choice_prediction_table[path_history] = 2;
+		else if(choice_prediction_table[path_history] == 3)
+			choice_prediction_table[path_history] = 3;
 	}
-	/*	Debug	*/	debug( choice_prediction_table[path_history] , UGL);
+	else if((global_prediction_table_val & taken)&&(local_history_table_val ^ taken))
+	{
+		if(choice_prediction_table[path_history] == 0)
+			choice_prediction_table[path_history] = 0;
+		else if(choice_prediction_table[path_history] == 1)
+			choice_prediction_table[path_history] = 0;
+		else if(choice_prediction_table[path_history] == 2)
+			choice_prediction_table[path_history] = 1;
+		else if(choice_prediction_table[path_history] == 3)
+			choice_prediction_table[path_history] = 2;
+	}
+	else if((global_prediction_table_val & taken)&&(local_history_table_val & taken))
+	{
+		if(choice_prediction_table[path_history] == 0)
+			choice_prediction_table[path_history] = 0;
+		else if(choice_prediction_table[path_history] == 1)
+			choice_prediction_table[path_history] = 1;
+		else if(choice_prediction_table[path_history] == 2)
+			choice_prediction_table[path_history] = 2;
+		else if(choice_prediction_table[path_history] == 3)
+			choice_prediction_table[path_history] = 3;
+	}
+	// if((global_prediction_table_val & taken)&&(local_history_table_val ^ taken))
+	// {
+	// 	switch(choice_prediction_table[path_history])
+	// 	{
+	// 		case 0:
+	// 			choice_prediction_table[path_history] = 0;
+	// 			break;
+	// 		case 1:
+	// 			choice_prediction_table[path_history] = 0;
+	// 			break;
+	// 		case 2:
+	// 			choice_prediction_table[path_history] = 1;
+	// 			break;
+	// 		case 3:
+	// 			choice_prediction_table[path_history] = 2;
+	// 			break;
+	// 	}
+	// }
+
+
+
+	/*
+	if((global_prediction_table_val & taken)&&(local_history_table_val ^ taken))//checking global predictor predicted correctly and checking local predictor predicted correctly
+	{ 
+			if(choice_prediction_table[path_history] >= 0x0)
+	 			choice_prediction_table[path_history] = 0x0; 
+			else 
+				choice_prediction_table[path_history]--;
 	
-	/* Local History Update logic	*/
-	local_history_table[b_index] = taken ?
-	(LHTVALMASK & (( local_history_table_val << 1 ) | SETLSB )):		// Shift in 1
-	(LHTVALMASK & (( local_history_table_val << 1 ) & CLRLSB ));		// Shift in 0 
-	/*	Debug	*/	debug( local_history_table[b_index], ULH );
+	}
+
+	*/
+	/*	Debug	*/	debug( choice_prediction_table[path_history] , UGL);
 
 	/* Local Prediction Update logic	*/	
 	if(taken && ( local_prediction_table_val >= 0x7 )) local_prediction_table[local_history_table_val] = 0x7;	
@@ -137,20 +209,25 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	else local_prediction_table[local_history_table_val]--;
 	/*	Debug	*/	debug( local_prediction_table[local_history_table_val], ULP);
 
+	/* Local History Update logic	*/
+	local_history_table[b_index] = taken ?
+	(LHTVALMASK & (( local_history_table_val << 1 ) | SETLSB )):		// Shift in 1
+	(LHTVALMASK & ( local_history_table_val << 1  ));		// Shift in 0 
+	/*	Debug	*/	debug( local_history_table[b_index], ULH );
+
+	/* Path History Update	*/
+	path_history = taken ?
+	( PATHHISTVAL & (( path_history << 1 ) | SETLSB )):		// Shift in 1
+	( PATHHISTVAL & (( path_history << 1 ) ));		// Shift in 0 
+	/*	Debug	*/	debug(path_history, PATHH);
+	/*	Debug	*/	debug(0, NEWLINE);
+
 	/* Global Prediction Update	*/
 	if(taken && ( global_prediction_table[path_history] >= 0x3 )) global_prediction_table[path_history] = 0x3;
 	else if(taken) global_prediction_table[path_history]++;
 	else if(!taken && ( global_prediction_table[path_history] == 0x0 ))	global_prediction_table[path_history] = 0x0;
 	else global_prediction_table[path_history]--;
 	/*	Debug	*/	debug( ( global_prediction_table[path_history] ), UGP);
-
-	/* Path History Update	*/
-	path_history = taken ?
-	( PATHHISTVAL & (( path_history << 1 ) | SETLSB )):		// Shift in 1
-	( PATHHISTVAL & (( path_history << 1 ) | CLRLSB ));		// Shift in 0 
-	/*	Debug	*/	debug(path_history, PATHH);
-	/*	Debug	*/	debug(0, NEWLINE);
-
 }
 
 void debug(unsigned int val, int tag){
@@ -208,7 +285,7 @@ void debug(unsigned int val, int tag){
 					fprintf(fh,"%-12s\t",			 "U-LocalHist");
 					fprintf(fh,"%-12s\t",			 "U-LocalPred");
 					fprintf(fh,"%-12s\t",			 "U-GlobalPred");
-					fprintf(fh,"%-12s",			 "U-Path Hist");
+					fprintf(fh,"%-12s",			 	 "U-Path Hist");
 			break;
 	} 
 	fclose(fh);
