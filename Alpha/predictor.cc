@@ -6,7 +6,6 @@
 */
 
 #include "predictor.h"
-
 #define LHTADDRMASK 0x3FF // Selects bits 0-9
 #define GPTADDRMASK 0xFFF // Selects bits 0-12
 #define LHTHEIGHT 1024
@@ -53,7 +52,6 @@ static unsigned int choice_prediction_table_val = 0;
 static unsigned int b_index = 0;
 static unsigned int path_history = 0;
 long unsigned int t = 0;
-
 
 /* Function Prototypes	*/
 void debug(unsigned int val, int tag);
@@ -114,20 +112,26 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 }
 
 void IndexFromPC(const branch_record_c* br) {
-	b_index = (LHTADDRMASK & (br->instruction_addr >> 0));
+	b_index = (LHTADDRMASK & (br->instruction_addr >> 2));
 }
 
 void LocalPrediction(void) {
+	unsigned int local_history_table_val_masked;
 	local_history_table_val = local_history_table[b_index];
-	local_prediction_table_val = (0x1 & (local_prediction_table[local_history_table_val] >> (LPTWIDTH - 1)));
+	local_history_table_val_masked = local_history_table_val & 0x3FF;
+	local_prediction_table_val = (0x1 & (local_prediction_table[local_history_table_val_masked] >> (LPTWIDTH - 1)));
 }
 
 void GlobalPrediction(void) {
-	global_prediction_table_val = (0x1 & (global_prediction_table[path_history] >> (GPTWIDTH - 1)));
+	unsigned int path_history_masked;
+	path_history_masked = path_history & 0xFFF;
+	global_prediction_table_val = (0x1 & (global_prediction_table[path_history_masked] >> (GPTWIDTH - 1)));
 }
 
 void ChoicePrediction(void) {
-	choice_prediction_table_val = (0x1 & (choice_prediction_table[path_history] >> (CPWIDTH - 1)));
+	unsigned int path_history_masked;
+	path_history_masked = path_history & 0xFFF;
+	choice_prediction_table_val = (0x1 & (choice_prediction_table[path_history_masked] >> (CPWIDTH - 1)));
 }
 
 bool Multiplexer(const branch_record_c* br) {
@@ -146,24 +150,28 @@ void LocalHistoryUpdate(bool taken) {
 }
 
 void LocalPredictionUpdate(bool taken) {
+	unsigned int local_history_table_val_masked;
+	local_history_table_val_masked = local_history_table_val & 0x3FF;
 	if (taken) {
-		if (local_prediction_table[local_history_table_val] < 0x7)
-			local_prediction_table[local_history_table_val]++;
+		if (local_prediction_table[local_history_table_val_masked] < 0x7)
+			local_prediction_table[local_history_table_val_masked]++;
 	}
-	else if (local_prediction_table[local_history_table_val] > 0x0)
-		local_prediction_table[local_history_table_val]--;
-	/*	Debug	*/	debug(local_prediction_table[local_history_table_val], ULP);
+	else if (local_prediction_table[local_history_table_val_masked] > 0x0)
+		local_prediction_table[local_history_table_val_masked]--;
+	/*	Debug	*/	debug(local_prediction_table[local_history_table_val_masked], ULP);
 }
 
 
 void GlobalPredictionUpdate(bool taken) {
+	unsigned int path_history_masked;
+	path_history_masked = path_history & 0xFFF;
 	if (taken) {
-		if (global_prediction_table[path_history] < 0x3)
-			global_prediction_table[path_history]++;
+		if (global_prediction_table[path_history_masked] < 0x3)
+			global_prediction_table[path_history_masked]++;
 	}
-	else if (global_prediction_table[path_history] > 0x0)
-		global_prediction_table[path_history]--;
-	/*	Debug	*/	debug((global_prediction_table[path_history]), UGP);
+	else if (global_prediction_table[path_history_masked] > 0x0)
+		global_prediction_table[path_history_masked]--;
+	/*	Debug	*/	debug((global_prediction_table[path_history_masked]), UGP);
 }
 
 void PredictionUpdate(bool taken) {
@@ -183,7 +191,7 @@ void PredictionUpdate(bool taken) {
 void PathHistoryUpdate(bool taken) {
 	path_history = taken ?
 		(PATHHISTVAL & ((path_history << 1) | SETLSB)) :		// Shift in 1
-		(PATHHISTVAL & ((path_history << 1) | CLRLSB));		// Shift in 0 
+		(PATHHISTVAL & ((path_history << 1) ));		// Shift in 0 
 	/*	Debug	*/	debug(path_history, PATHH);
 	/*	Debug	*/	debug(0, NEWLINE);
 }
@@ -222,7 +230,7 @@ void debug(unsigned int val, int tag){
 			break;
 		case UGL:	fprintf(fh, "%s\t", binary);
 			break;
-		case PATHH:	fprintf(fh, "%s\t", binary);
+		case PATHH:	fprintf(fh, "%-12s\t", binary);
 			break;
 		case NEWLINE:fprintf(fh, "\r\n");
 			break;
