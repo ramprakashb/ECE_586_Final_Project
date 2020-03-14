@@ -13,22 +13,17 @@
 #define LHTWIDTH 10
 #define LPTHEIGHT 1024
 #define LPTWIDTH 3
-#define LPTVAL 0x7
 #define GPTHEIGHT 4096
 #define GPTWIDTH 2
-#define GPTVAL 0x3
 #define CPHEIGHT 4096
 #define CPWIDTH 2
-#define CPVAL 0x3
 #define LHTVALMASK 0x3FF    ///local history table's 10 bits
 #define PATHHISTVAL 0xFFF
-#define GLOBAL_PREDICTION 1
-#define LOCAL_PREDICTION 0
 #define SETLSB 0x1
 #define CLRLSB 0xFFE
 
 // Debug
-#define BS_VERBOSE
+//#define BS_VERBOSE
 #define PGL 1
 #define PGP 2
 #define PLP 3
@@ -62,27 +57,32 @@ long unsigned int t = 0;
 
 /* Function Prototypes	*/
 void debug(unsigned int val, int tag);
+void IndexFromPC(const branch_record_c* br);
+void LocalPrediction(void);
+void GlobalPrediction(void);
+void ChoicePrediction(void);
+bool Multiplexer(const branch_record_c* br);
+
+void LocalHistoryUpdate(bool taken);
+void LocalPredictionUpdate(bool taken);
+void GlobalPredictionUpdate(bool taken);
+void PredictionUpdate(bool taken);
+void PathHistoryUpdate(bool taken);
+
 
 bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
 
-	/* Index from PC	*/
-	b_index = ( LHTADDRMASK & (br->instruction_addr >>2) );
+	IndexFromPC(br);
 	
-	/* Local Prediction logic	*/
-	local_history_table_val = local_history_table[b_index];
-	local_prediction_table_val = ( 0x1 & (local_prediction_table[local_history_table_val] >> (LPTWIDTH -1 ))); 
+	LocalPrediction();
 
-	/* Global Prediction Logic	*/
-	global_prediction_table_val = ( 0x1 & (global_prediction_table[path_history] >> (GPTWIDTH - 1)));
+	GlobalPrediction();
 
-	/* Choice Prediction Logic	*/
-	choice_prediction_table_val = ( 0x1 & (choice_prediction_table[path_history] >> (CPWIDTH - 1)));
+	ChoicePrediction();
 
 	/* Debug	*/
 	t++;
-	if(t == 1){ debug (0, HEAD);
-		debug( 0, NEWLINE);
-	}
+	if(t == 1){ debug (0, HEAD); debug( 0, NEWLINE);}
 	debug( 0, LINE);
 	debug( b_index, BINDEX);
 	debug( choice_prediction_table[path_history], PGL);
@@ -91,13 +91,7 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 	debug( local_history_table[b_index], PLH );
 	debug( path_history, PATHH);
 
-
-	/* Multiplexer */
-	if( br->branch_target < br->instruction_addr) return 1;
-	if( !(br->is_conditional) || br->is_call || br->is_return) return 1;
-	return	choice_prediction_table_val	?	// GLOBAL_PREDICTION or LOCAL_PREDICTION ? 
-			global_prediction_table_val:	// GLOBAL_PREDICTION
-			local_prediction_table_val; 	// LOCAL_PREDICTION
+	return Multiplexer(br);
 
 }
     
@@ -107,50 +101,91 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken){
 	
 	/* Debug	*/	debug(taken, TAKEN);
+	LocalHistoryUpdate(taken);
 
-	/* Choice Prediction Update	*/
-	if(global_prediction_table_val == taken){
-		if(!(local_prediction_table_val == taken)){	// 1/0
-			if(choice_prediction_table[path_history] >= 0x3)
-				choice_prediction_table[path_history] = 0x3; 
-			else choice_prediction_table[path_history]++;
-					// Move to higher state.
+	LocalPredictionUpdate(taken);
+
+	GlobalPredictionUpdate(taken);
+
+	PredictionUpdate(taken);
+
+	PathHistoryUpdate(taken);
+
+}
+
+void IndexFromPC(const branch_record_c* br) {
+	b_index = (LHTADDRMASK & (br->instruction_addr >> 0));
+}
+
+void LocalPrediction(void) {
+	local_history_table_val = local_history_table[b_index];
+	local_prediction_table_val = (0x1 & (local_prediction_table[local_history_table_val] >> (LPTWIDTH - 1)));
+}
+
+void GlobalPrediction(void) {
+	global_prediction_table_val = (0x1 & (global_prediction_table[path_history] >> (GPTWIDTH - 1)));
+}
+
+void ChoicePrediction(void) {
+	choice_prediction_table_val = (0x1 & (choice_prediction_table[path_history] >> (CPWIDTH - 1)));
+}
+
+bool Multiplexer(const branch_record_c* br) {
+	//if (br->branch_target < br->instruction_addr) return 1;				// HAS NEGATIVE EFFECT ON HIT RATE	
+	//if (!(br->is_conditional) || br->is_call || br->is_return) return 1;	// HAS NO EFFECT ON HIT RATE
+	return	choice_prediction_table_val ?	// GLOBAL_PREDICTION or LOCAL_PREDICTION ? 
+		global_prediction_table_val :	// GLOBAL_PREDICTION MSb 1
+		local_prediction_table_val; 	// LOCAL_PREDICTION	MSb 0
+}
+
+void LocalHistoryUpdate(bool taken) {
+	local_history_table[b_index] = taken ?
+		(LHTVALMASK & ((local_history_table_val << 1) | SETLSB)) :		// Shift in 1
+		(LHTVALMASK & ((local_history_table_val << 1) & CLRLSB));		// Shift in 0 
+	/*	Debug	*/	debug(local_history_table[b_index], ULH);
+}
+
+void LocalPredictionUpdate(bool taken) {
+	if (taken) {
+		if (local_prediction_table[local_history_table_val] < 0x7)
+			local_prediction_table[local_history_table_val]++;
+	}
+	else if (local_prediction_table[local_history_table_val] > 0x0)
+		local_prediction_table[local_history_table_val]--;
+	/*	Debug	*/	debug(local_prediction_table[local_history_table_val], ULP);
+}
+
+
+void GlobalPredictionUpdate(bool taken) {
+	if (taken) {
+		if (global_prediction_table[path_history] < 0x3)
+			global_prediction_table[path_history]++;
+	}
+	else if (global_prediction_table[path_history] > 0x0)
+		global_prediction_table[path_history]--;
+	/*	Debug	*/	debug((global_prediction_table[path_history]), UGP);
+}
+
+void PredictionUpdate(bool taken) {
+	if (global_prediction_table_val == taken) {					// ?/?
+		if (!(local_prediction_table_val == taken)) {				// 1/?
+			if (choice_prediction_table[path_history] < 0x3)		// 1/0
+				choice_prediction_table[path_history]++;
 		}
 	}
-	else if(local_prediction_table_val == taken){ 	// 0/1
-			if(choice_prediction_table[path_history] == 0x0)
-				choice_prediction_table[path_history] = 0x0; 
-			else choice_prediction_table[path_history]--;
+	else if (local_prediction_table_val == taken) { 				// 0/?
+		if (choice_prediction_table[path_history] > 0x0)		// 0/1
+			choice_prediction_table[path_history]--;
 	}
-	/*	Debug	*/	debug( choice_prediction_table[path_history] , UGL);
-	
-	/* Local History Update logic	*/
-	local_history_table[b_index] = taken ?
-	(LHTVALMASK & (( local_history_table_val << 1 ) | SETLSB )):		// Shift in 1
-	(LHTVALMASK & (( local_history_table_val << 1 ) & CLRLSB ));		// Shift in 0 
-	/*	Debug	*/	debug( local_history_table[b_index], ULH );
+	/*	Debug	*/	debug(choice_prediction_table[path_history], UGL);
+}
 
-	/* Local Prediction Update logic	*/	
-	if(taken && ( local_prediction_table_val >= 0x7 )) local_prediction_table[local_history_table_val] = 0x7;	
-	else if(taken) local_prediction_table[local_history_table_val]++;
-	else if(!taken && ( local_prediction_table_val == 0x0 )) local_prediction_table[local_history_table_val] = 0x0;	
-	else local_prediction_table[local_history_table_val]--;
-	/*	Debug	*/	debug( local_prediction_table[local_history_table_val], ULP);
-
-	/* Global Prediction Update	*/
-	if(taken && ( global_prediction_table[path_history] >= 0x3 )) global_prediction_table[path_history] = 0x3;
-	else if(taken) global_prediction_table[path_history]++;
-	else if(!taken && ( global_prediction_table[path_history] == 0x0 ))	global_prediction_table[path_history] = 0x0;
-	else global_prediction_table[path_history]--;
-	/*	Debug	*/	debug( ( global_prediction_table[path_history] ), UGP);
-
-	/* Path History Update	*/
+void PathHistoryUpdate(bool taken) {
 	path_history = taken ?
-	( PATHHISTVAL & (( path_history << 1 ) | SETLSB )):		// Shift in 1
-	( PATHHISTVAL & (( path_history << 1 ) | CLRLSB ));		// Shift in 0 
+		(PATHHISTVAL & ((path_history << 1) | SETLSB)) :		// Shift in 1
+		(PATHHISTVAL & ((path_history << 1) | CLRLSB));		// Shift in 0 
 	/*	Debug	*/	debug(path_history, PATHH);
 	/*	Debug	*/	debug(0, NEWLINE);
-
 }
 
 void debug(unsigned int val, int tag){
