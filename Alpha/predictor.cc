@@ -9,83 +9,58 @@
 #include "predictor.h"
 
 /*Variables- gshare*/
-
-#define BHMASK 0x3FF			//10 bits for branch history
-#define BAMASK 0x3FF			//10 bits for branch Address
-#define XORMASK 0x3FF			//10 bits for XOR Address
-#define PREDICT_SIZE 1024			//10 bits for Predictor Table Size
-#define TAGMASK 0xFFFFF			//20 bits for TAG Address
+#define BHMASK 0xFFF			//10 bits for branch history
+#define BAMASK 0xFFF			//10 bits for branch Address
+#define PREDICT_SIZE 4*1024		//10 bits for Predictor Table Size
 #define SETLSB 0x1
 #define PATHHISTVAL 0xFFF
+//#define BS_VERBOSE
 
-static unsigned int branch_history_g = 0;
-static unsigned int xor_output_g = 0;
+static unsigned int xor_output = 0;
+static unsigned int branch_address = 0;
 static unsigned int path_history = 0;
-static unsigned int branch_address_g = 0;
-static unsigned int predict_output = 0;
-static unsigned int predict_tag_g = 0;
-static unsigned int predict_set_g = 0;
-/*Data Structures- gshare*/
- static unsigned int predict_table_g[PREDICT_SIZE];
- static unsigned int predict_table_set_g[PREDICT_SIZE];
- static unsigned int predict_table_tag_g[PREDICT_SIZE];
+static unsigned int predict_table_g[PREDICT_SIZE] = {0};
 
-
-
-/////////////////////////////////Gshare Predictor//////////////////////////////////
 /*function Prototypes- gshare*/
-void get_global_branch_history_g();
-void get_branch_address(const branch_record_c*);
-void get_xor_operation();
-bool get_predict(const branch_record_c*);
-void update_global_branch_history(bool);
-void update_predict_table(bool);
-void debug(unsigned int val, const char *tag);
-
+unsigned int xor_comb(unsigned int a, unsigned int b);
+bool get_predict(void);				// returs prediction
+void update_global_branch_history(bool);				// updates path history
+void update_predict_table(bool);						// updates predictor pointed to by hash
+void get_branch_address(const branch_record_c* br);
+void debug(unsigned int val, const char *tag);			// prints values in column format
 
 
 
 bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
 	//Gshare
-
-	//Get Global Branch History values
-	get_global_branch_history_g();
-
-	//Get Branch Address
+	//Get address branch
 	get_branch_address(br);
 
-
-	//XOR Operation of Global and Branch
-	get_xor_operation();
+	//xor
+	xor_output = xor_comb(path_history, branch_address);
 
 	//Get Prediction table values
-	return get_predict(br);
+	return get_predict();
 
 }
 
-
-void get_global_branch_history_g(void)
-{
-	branch_history_g = path_history & BHMASK;
-}
 
 void get_branch_address(const branch_record_c* br)
 {
-	branch_address_g = (BAMASK & (br->instruction_addr >> 2));
+	branch_address = (BAMASK & ( br->instruction_addr >> 2));
+	/*	Debug	*/	debug(branch_address, "branch_address_g");
 }
 
-void get_xor_operation(void)
+unsigned int xor_comb(unsigned int a, unsigned int b)
 {
-	xor_output_g = branch_history_g ^ branch_address_g;
+	return  (BHMASK & (a ^ b));
 }
-bool get_predict(const branch_record_c* br)
+bool get_predict(void)
 {
-    xor_output_g = xor_output_g & 0x3FF;
-	predict_tag_g = predict_table_tag_g[xor_output_g];
-    predict_tag_g = predict_tag_g & TAGMASK; 
-	predict_set_g = predict_table_set_g[predict_tag_g];
-	predict_output = (0x1 & (predict_table_g[predict_set_g] >> 1));
-    if (predict_output)
+	/*	Debug	*/ 	debug(xor_output, "xor_output");
+	/*	Debug	*/	debug(predict_table_g[xor_output], "predict_table_g[xor]");
+
+    if ((predict_table_g[xor_output] >> 1) & 0x1)	// Return value based on MSb.
         return true;
 	else
         return false;
@@ -100,9 +75,10 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	//Update path history values
 	update_global_branch_history(taken);
 
-
 	//update predict table
 	update_predict_table(taken);
+
+	/*	Debug	*/	debug(0, "NEWLINE");
 
 }
 
@@ -112,19 +88,24 @@ void update_global_branch_history(bool taken)
 		path_history = PATHHISTVAL & ((path_history << 1) | SETLSB);
 	else
 		path_history = PATHHISTVAL & (path_history << 1);
+	
+	/*	Debug	*/	debug(path_history, "path_history");
+
 }
 
 void update_predict_table(bool taken)
 {
-		if(predict_output == taken)
+		if(taken)
         {
-			if(predict_set_g < 0x3)
-			 	predict_table_set_g[predict_tag_g]++;
+			if(predict_table_g[xor_output] < 0x3)
+			 	predict_table_g[xor_output]++;
         }
-		else if(predict_set_g > 0x1)
+		else if(predict_table_g[xor_output] > 0x0)
         {
-				predict_table_set_g[predict_tag_g]--;
+				predict_table_g[xor_output]--;
         }
+
+		/*	Debug	*/	debug(predict_table_g[xor_output], "Predict_table_g[xor]-U");
 }
 
 void debug(unsigned int val, const char *tag){
@@ -134,7 +115,7 @@ void debug(unsigned int val, const char *tag){
 	
 	char binary[13] = {0};
 	static char tagname[20][256] = {'\0'};
-	static char tagval[20][13] = {'\0'};
+	static char tagval[20][256] = {'\0'};
 	static int i = 0;
 	static unsigned char header = 0;
 
@@ -154,13 +135,13 @@ void debug(unsigned int val, const char *tag){
 	else{
 				if(header == 0){
 					for(int j = 0; j < i; j++){
-						fprintf(fh, "%-12s\t", tagname[j]);
+						fprintf(fh, "%24s\t", tagname[j]);
 					}
 					fprintf(fh, "\n");
 					header = 1;
 				}
 				for(int j = 0; j < i; j++){
-						fprintf(fh, "%-12s\t", tagval[j]);
+						fprintf(fh, "%-24s\t", tagval[j]);
 				}
 				fprintf(fh, "\n");
 				i = 0;
