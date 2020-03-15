@@ -10,11 +10,12 @@
 
 /*Variables- gshare*/
 
-#define BHMASK 0x3FF	//10 bits for branch history
-#define BAMASK 0x3FF	//10 bits for branch Address
-#define XORMASK 0x3FF	//10 bits for XOR Address
-#define PREDICT_SIZE 1024	//Prediction table of size 1024
-#define TAGMASK 0xFFFFF		//20 bits for TAG Address
+#define BHMASK 0x3FF			//10 bits for branch history
+#define BAMASK 0x3FF			//10 bits for branch Address
+#define XORMASK 0x3FF			//10 bits for XOR Address
+#define PREDICTOR_SIZE 2 		// 2-bit predictor counter
+#define PREDICT_TABLE_SIZE 1024	//Prediction table of size 1024
+#define TAGMASK 0xFFFFF			//20 bits for TAG Address
 #define SETLSB 0x1
 #define PATHHISTVAL 0xFFF
 
@@ -40,6 +41,8 @@ void get_xor_operation();
 bool get_predict(const branch_record_c*);
 void update_global_branch_history(bool);
 void update_predict_table(bool);
+void debug(unsigned int val, const char *tag);
+
 
 
 
@@ -123,4 +126,47 @@ void update_predict_table(bool taken)
         {
 				predict_table_set_g[predict_tag_g]--;
         }
+}
+
+void debug(unsigned int val, const char *tag){
+	#ifdef	BS_VERBOSE
+	FILE * fh = NULL;
+	fh = fopen("log.txt", "a");
+	
+	char binary[13] = {0};
+	static char tagname[20][256] = {'\0'};
+	static char tagval[20][13] = {'\0'};
+	static int i = 0;
+	static unsigned char header = 0;
+
+	if(tag != "LINE"){
+		for(char i=12; i > 0 ; i--){
+			if((val >> (i - 1)) & 0x1) binary[11 - (i-1)] = '1';
+			else binary[11 - (i -1)] = '0';
+		}
+	}
+	else{
+		sprintf(binary, "%lu", val);
+	}
+
+	if(strcmp(tag, "NEWLINE") != 0){
+		 strcpy(tagname[i] , tag); strcpy(tagval[i] , binary); i++;
+	}
+	else{
+				if(header == 0){
+					for(int j = 0; j < i; j++){
+						fprintf(fh, "%-12s\t", tagname[j]);
+					}
+					fprintf(fh, "\n");
+					header = 1;
+				}
+				for(int j = 0; j < i; j++){
+						fprintf(fh, "%-12s\t", tagval[j]);
+				}
+				fprintf(fh, "\n");
+				i = 0;
+	}
+
+	fclose(fh);
+	#endif
 }
