@@ -13,8 +13,7 @@
 #define BHMASK 0x3FF			//10 bits for branch history
 #define BAMASK 0x3FF			//10 bits for branch Address
 #define XORMASK 0x3FF			//10 bits for XOR Address
-#define PREDICTOR_SIZE 2 		// 2-bit predictor counter
-#define PREDICT_TABLE_SIZE 1024	//Prediction table of size 1024
+#define PREDICT_SIZE 1024			//10 bits for Predictor Table Size
 #define TAGMASK 0xFFFFF			//20 bits for TAG Address
 #define SETLSB 0x1
 #define PATHHISTVAL 0xFFF
