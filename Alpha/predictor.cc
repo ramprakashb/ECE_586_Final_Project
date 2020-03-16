@@ -14,9 +14,10 @@
 #define WORD			2						// Used for PC Word Alignment.
 #define PC_MASK			(INDEX_SIZE - 1)		// Used to mask PC bits for use with hash. 
 #define PLRU_SIZE		(NUM_OF_WAYS - 1)
-#define INDEX_SIZE		512
+#define INDEX_SIZE		256
 #define SET_LSB			0x1
-#define PATH_HIST_MASK  PC_MASK
+#define PATH_HIST_MASK  1048575
+#define PATH_HIST_SIZE  20
 #define BS_VERBOSE
 
 /*	Global Variables	*/
@@ -33,6 +34,7 @@ struct _table{
 }table[NUM_OF_WAYS];
 
 bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
+	
 	initialize(br);
 	hash();
 	tag_compare();
@@ -59,29 +61,30 @@ void initialize(const branch_record_c* br ){
 
 	pc_select = (PC_MASK & (br->instruction_addr >> WORD));
 
-/*	debug(pc_select, "pc_select");	*/
+	debug(pc_select, "pc_select");	
 
-	table[0].path_mask = 0;
 
-	for( int i = 1; i < NUM_OF_WAYS; i++){
+
+	for( int i = 0; i < NUM_OF_WAYS; i++){
 		table[i].path_mask = PATH_HIST_MASK & (ipow(2, (i+2)) - 1);
-	
+		
+		table[0].path_mask = 0;
 
 		/*	Debug	*/
-	/*	char string[] = "table[%d].path_mask";
+		char string[] = "table[%d].path_mask";
 		sprintf(string, "table[%d].path_mask", i);
-		debug(table[i].path_mask, string);	*/
+		debug(table[i].path_mask, string);	
 	}
 }
 
 void hash(void){
 	for(int i = 0; i < NUM_OF_WAYS; i++ ){
-		table[i].hash = ( pc_select ^ (path_history & table[i].path_mask));
+		table[i].hash = ( pc_select ^ ((path_history) & table[i].path_mask));
 	
-		/*	Debug	*/	
-	/*	char string[] = "table[%d].hash";
+		/*	Debug	*/
+		char string[] = "table[%d].hash";
 		sprintf(string, "table[%d].hash", i);
-		debug(table[i].hash, string);			*/
+		debug(table[i].hash, string);			
 	}
 }
 
@@ -90,11 +93,11 @@ void tag_compare(void){
 		table[i].match = (table[i].hash == table[i].tag[table[i].hash]) ? 0x1 : 0x0;
 
 		/*	Debug	*/
-	/*	char string[] = "table[%d].tag[table[%d].hash]";
+		char string[] = "table[%d].tag[table[%d].hash]";
 		sprintf(string, "table[%d].tag[table[%d].hash]", i);
 		debug(table[i].tag[table[i].hash], string);			
 		sprintf(string, "table[%d].match", i);
-		debug(table[i].match, string);			*/
+		debug(table[i].match, string);			
 	}
 }
 
@@ -138,7 +141,8 @@ void plru_update(void){
 		// No change, table[0] is the base predictor (no cache).
 	}
 
-/*	debug(	
+	/*	Debug	*/
+	debug(	
 		(table[7].match << 7) 	| 
 		(table[6].match << 6) 	| 
 		(table[5].match << 5)	|
@@ -147,9 +151,9 @@ void plru_update(void){
 		(table[2].match << 2)   |
 		(table[1].match << 1)   |
 		(table[0].match << 0)	, 
-		"All Table Matches");		*/
+		"All Table Matches");		
 	
-/*	for(int i = 0; i<NUM_OF_WAYS; i++){
+	for(int i = 0; i<NUM_OF_WAYS; i++){
 		char string[] = "Table %d plru bits";
 		sprintf(string, "Table %d plru bits", i);
 
@@ -163,7 +167,7 @@ void plru_update(void){
 			(plru[table[i].hash][1] << 1)   |
 			(plru[table[i].hash][1] << 0)	, 
 			string);
-	}												*/
+	}												
 
 
 }
@@ -190,10 +194,10 @@ void tag_replace(void){
 		}
 
 		/*	Debug	*/
-	/*	char string[] = "table[i].tag[table[i].hash] - U";
+		char string[] = "table[i].tag[table[i].hash] - U";
 		sprintf(string, "table[%d].tag[table[%d].hash] - U", i, i);
 		debug(table_select, "Replacement Table");
-		debug(table[i].tag[table[i].hash], string);	*/
+		debug(table[i].tag[table[i].hash], string);	
 	}
 }
 
@@ -205,28 +209,27 @@ bool prediction(void){
 			char string[] = "Table %d prediction bits";
 			sprintf(string, "Table %d prediction bits", i);
 			debug( table[i].prediction[table[i].hash], string);
-		}
+		}	
 
 		debug(	
-			((0x1 & (table[7].prediction[table[7].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 7) 	| 
-			((0x1 & (table[6].prediction[table[6].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 6) 	| 
-			((0x1 & (table[5].prediction[table[5].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 5)	|
-			((0x1 & (table[4].prediction[table[4].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 4) 	| 
-			((0x1 & (table[3].prediction[table[3].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 3) 	| 
-			((0x1 & (table[2].prediction[table[2].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 2)   |
-			((0x1 & (table[1].prediction[table[1].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 1)   |
-			((0x1 & (table[0].prediction[table[0].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 0)	, 
-			"All Tables Prediction Bits");
+			((0x1 & (table[7].prediction[table[7].hash] >> (PREDICTOR_SIZE -1))) << 7) 	| 
+			((0x1 & (table[6].prediction[table[6].hash] >> (PREDICTOR_SIZE -1))) << 6) 	| 
+			((0x1 & (table[5].prediction[table[5].hash] >> (PREDICTOR_SIZE -1))) << 5)	|
+			((0x1 & (table[4].prediction[table[4].hash] >> (PREDICTOR_SIZE -1))) << 4) 	| 
+			((0x1 & (table[3].prediction[table[3].hash] >> (PREDICTOR_SIZE -1))) << 3) 	| 
+			((0x1 & (table[2].prediction[table[2].hash] >> (PREDICTOR_SIZE -1))) << 2)  |
+			((0x1 & (table[1].prediction[table[1].hash] >> (PREDICTOR_SIZE -1))) << 1)  |
+			((0x1 & (table[0].prediction[table[0].hash] >> (PREDICTOR_SIZE -1))) << 0)	, 
+			"All Tables Prediction Bits");	
 
-
-	return	table[7].match ? (0x1 & (table[7].prediction[table[7].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
-			table[6].match ? (0x1 & (table[6].prediction[table[6].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
-			table[5].match ? (0x1 & (table[5].prediction[table[5].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
-			table[4].match ? (0x1 & (table[4].prediction[table[4].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
-			table[3].match ? (0x1 & (table[3].prediction[table[3].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
-			table[2].match ? (0x1 & (table[2].prediction[table[2].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
-			table[1].match ? (0x1 & (table[1].prediction[table[1].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
-							 (0x1 & (table[0].prediction[table[0].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) ;
+	return	table[7].match ? (0x1 & (table[7].prediction[table[7].hash] >> (PREDICTOR_SIZE -1))) :
+			table[6].match ? (0x1 & (table[6].prediction[table[6].hash] >> (PREDICTOR_SIZE -1))) :
+			table[5].match ? (0x1 & (table[5].prediction[table[5].hash] >> (PREDICTOR_SIZE -1))) :
+			table[4].match ? (0x1 & (table[4].prediction[table[4].hash] >> (PREDICTOR_SIZE -1))) :
+			table[3].match ? (0x1 & (table[3].prediction[table[3].hash] >> (PREDICTOR_SIZE -1))) :
+			table[2].match ? (0x1 & (table[2].prediction[table[2].hash] >> (PREDICTOR_SIZE -1))) :
+			table[1].match ? (0x1 & (table[1].prediction[table[1].hash] >> (PREDICTOR_SIZE -1))) :
+							 (0x1 & (table[0].prediction[table[0].hash] >> (PREDICTOR_SIZE -1))) ;	
 }
 
 void update_predictors(bool taken){
@@ -241,12 +244,22 @@ void update_predictors(bool taken){
 			break;
 		}
 	}
+			debug(	
+			((0x1 & (table[7].prediction[table[7].hash] >> (PREDICTOR_SIZE -1))) << 7) 	| 
+			((0x1 & (table[6].prediction[table[6].hash] >> (PREDICTOR_SIZE -1))) << 6) 	| 
+			((0x1 & (table[5].prediction[table[5].hash] >> (PREDICTOR_SIZE -1))) << 5)	|
+			((0x1 & (table[4].prediction[table[4].hash] >> (PREDICTOR_SIZE -1))) << 4) 	| 
+			((0x1 & (table[3].prediction[table[3].hash] >> (PREDICTOR_SIZE -1))) << 3) 	| 
+			((0x1 & (table[2].prediction[table[2].hash] >> (PREDICTOR_SIZE -1))) << 2)  |
+			((0x1 & (table[1].prediction[table[1].hash] >> (PREDICTOR_SIZE -1))) << 1)  |
+			((0x1 & (table[0].prediction[table[0].hash] >> (PREDICTOR_SIZE -1))) << 0)	, 
+			"All Tables Prediction Bits-U");	
 }
 
 void update_path_history(bool taken){
 	if(taken) 	path_history = (PATH_HIST_MASK & ((path_history << 1) | SET_LSB));
-	else 		path_history = (PATH_HIST_MASK & (path_history << 1));
-	// debug(path_history, "PathHistory \tUpdate");
+	else 		path_history = (PATH_HIST_MASK & (path_history << 1)) & (PATH_HIST_MASK -1);
+	debug(path_history, "PathHistory Update");
 }
 
 void debug(unsigned int val, const char *tag){
