@@ -22,14 +22,6 @@ public:
 
 };
 
-typedef struct {
-    unsigned int prediction;    // Prediction bits.
-    unsigned int tag;           // Tag bits.
-    unsigned int path_mask;     // Used for masking path history prior to hash.
-    unsigned int hash;          // The hash result of PC with masked path history.
-    unsigned int match;         // The flag for a mathching tag with the hash.
-}_table;
-
 void debug(unsigned int val, const char *tag);                  // For Debugging.
 
 unsigned int ipow(unsigned int base, unsigned int exponent);    // For ease-of-use with power of two.
@@ -48,6 +40,7 @@ void plru_update(void);
 
 void update_predictors(bool taken);
 
+void update_path_history(bool taken);
 
 #endif // PREDICTOR_H_SEEN
 
