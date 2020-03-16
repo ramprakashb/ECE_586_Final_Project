@@ -70,6 +70,7 @@ void PathHistoryUpdate(bool taken);
 
 bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
 
+	bool mux_op;
 	IndexFromPC(br);
 	
 	LocalPrediction();
@@ -89,8 +90,12 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 	debug( local_history_table[b_index], PLH );
 	debug( path_history, PATHH);
 
-	return Multiplexer(br);
+	mux_op=  Multiplexer(br);
 
+	if(br->is_call || br->is_return || mux_op ) 
+		return true;
+	else
+		return false;
 }
     
 // Update the predictor after a prediction has been made.  This should accept
@@ -99,6 +104,11 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken){
 	
 	/* Debug	*/	debug(taken, TAKEN);
+
+	if(br->is_call || br->is_return)
+		PathHistoryUpdate(taken);
+	else
+	{
 	LocalHistoryUpdate(taken);
 
 	LocalPredictionUpdate(taken);
@@ -108,6 +118,7 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	PredictionUpdate(taken);
 
 	PathHistoryUpdate(taken);
+	}
 
 }
 
