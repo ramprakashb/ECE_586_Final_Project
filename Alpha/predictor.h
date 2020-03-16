@@ -40,5 +40,7 @@ void initialize(const branch_record_c* br );
 
 void hash(void);
 
+void tag_compare(void);
+
 #endif // PREDICTOR_H_SEEN
 

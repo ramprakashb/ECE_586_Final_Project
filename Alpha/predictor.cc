@@ -22,6 +22,7 @@ _table table[NUM_OF_WAYS];
 bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
 	initialize(br); 
 	hash();
+	tag_compare();
 	return prediction();
 }
 
@@ -38,6 +39,13 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 ************ Function ***************
 *********** Definitions *************
 ************************************/
+
+void tag_compare(void){
+	for(int i = 0; i < NUM_OF_WAYS; i++){
+		table[i].match = (table[i].hash == table[i].tag) ? 0x1 : 0x0;
+	}
+}
+
 void initialize(const branch_record_c* br ){
 	unsigned int base_value = (PCMASK / NUM_OF_WAYS);
 
@@ -66,7 +74,6 @@ bool prediction(void){
 			table[1].match ? (0x1 & (table[1].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :
 							 (0x1 & (table[0].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) ;
 }
-
 
 void debug(unsigned int val, const char *tag){
 	#ifdef	BS_VERBOSE
