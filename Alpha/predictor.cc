@@ -12,9 +12,11 @@
 #define NUM_OF_WAYS		8
 #define PREDICTOR_SIZE	3		// Size in bits.
 #define WORD			2		// Used for PC Word Alignment.
-#define PCMASK			32		// Used to mask PC bits for use with hash.
+#define PC_MASK			32		// Used to mask PC bits for use with hash.
 #define PLRU_SIZE		(NUM_OF_WAYS - 1)
 #define INDEX_SIZE		1024
+#define SET_LSB			0x1
+#define PATH_HIST_MASK
 
 /*	Global Variables	*/
 unsigned int path_history;
@@ -36,7 +38,7 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 // argument (taken) indicating whether or not the branch was taken.
 void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken){
 	update_predictors(taken);
-
+	update_path_history(taken);
 	/*	Debug	*/	debug(0, "NEWLINE");
 }
 
@@ -46,9 +48,9 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 ************************************/
 
 void initialize(const branch_record_c* br ){
-	unsigned int base_value = (PCMASK / NUM_OF_WAYS);
+	unsigned int base_value = (PC_MASK / NUM_OF_WAYS);
 
-	pc_select = (PCMASK & (br->instruction_addr >> WORD));
+	pc_select = (PC_MASK & (br->instruction_addr >> WORD));
 
 	table[0].path_mask = 0;
 
@@ -149,6 +151,11 @@ void update_predictors(bool taken){
 			break;
 		}
 	}
+}
+
+void update_path_history(bool taken){
+	if(taken) 	(PATH_HIST_MASK & (path_history << 1) | SET_LSB);
+	else 		(PATH_HIST_MASK & (path_history << 1));
 }
 
 void debug(unsigned int val, const char *tag){
