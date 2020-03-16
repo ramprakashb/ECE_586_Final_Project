@@ -8,11 +8,17 @@
 
 #include "predictor.h"
 
-table t1[8];
+/*	Macros	*/
+#define PREDICTOR_SIZE	3		// Size in bits.
+
+/*	Global Variables	*/
+unsigned int path_history;
+unsigned int pc_select;
+_table table[8];
 
 bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
 
-return 1;
+	return prediction();
 }
 
 // Update the predictor after a prediction has been made.  This should accept
@@ -24,6 +30,21 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 	/*	Debug	*/	debug(0, "NEWLINE");
 }
 
+/************************************
+************ Function ***************
+*********** Definitions *************
+************************************/
+
+bool prediction(void){
+	return	table[7].match ? (0x1 & (table[7].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :
+			table[6].match ? (0x1 & (table[6].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :
+			table[5].match ? (0x1 & (table[5].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :
+			table[4].match ? (0x1 & (table[4].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :
+			table[3].match ? (0x1 & (table[3].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :
+			table[2].match ? (0x1 & (table[2].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :
+			table[1].match ? (0x1 & (table[1].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :
+							 (0x1 & (table[0].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) ;
+}
 
 
 void debug(unsigned int val, const char *tag){

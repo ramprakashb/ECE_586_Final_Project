@@ -28,11 +28,13 @@ typedef struct {
     unsigned int path_mask;     // Used for masking path history prior to hash.
     unsigned int hash;          // The hash result of PC with masked path history.
     unsigned int match;         // The flag for a mathching tag with the hash.
-}table;
+}_table;
 
 void debug(unsigned int val, const char *tag);                  // For Debugging.
 
 unsigned int ipow(unsigned int base, unsigned int exponent);    // For ease-of-use with power of two.
+
+bool prediction(void);
 
 #endif // PREDICTOR_H_SEEN
 
