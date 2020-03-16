@@ -59,35 +59,42 @@ void initialize(const branch_record_c* br ){
 
 	pc_select = (PC_MASK & (br->instruction_addr >> WORD));
 
-	debug(pc_select, "pc_select");
+/*	debug(pc_select, "pc_select");	*/
 
 	table[0].path_mask = 0;
 
 	for( int i = 1; i < NUM_OF_WAYS; i++){
 		table[i].path_mask = PATH_HIST_MASK & (ipow(2, (i+2)) - 1);
+	
+
+		/*	Debug	*/
+	/*	char string[] = "table[%d].path_mask";
+		sprintf(string, "table[%d].path_mask", i);
+		debug(table[i].path_mask, string);	*/
 	}
-/*	debug(table[0].path_mask, "t0 path_mask");y
-	debug(table[1].path_mask, "t1 path_mask");
-	debug(table[2].path_mask, "t2 path_mask");
-	debug(table[3].path_mask, "t3 path_mask");
-	debug(table[4].path_mask, "t4 path_mask");
-	debug(table[5].path_mask, "t5 path_mask");
-	debug(table[6].path_mask, "t6 path_mask");
-	debug(table[7].path_mask, "t7 path_mask");	*/
 }
 
 void hash(void){
 	for(int i = 0; i < NUM_OF_WAYS; i++ ){
 		table[i].hash = ( pc_select ^ (path_history & table[i].path_mask));
-/*		debug(table[i].path_mask, "path_mask");	*/
+	
+		/*	Debug	*/	
+	/*	char string[] = "table[%d].hash";
+		sprintf(string, "table[%d].hash", i);
+		debug(table[i].hash, string);			*/
 	}
 }
 
 void tag_compare(void){
 	for(int i = 0; i < NUM_OF_WAYS; i++){
 		table[i].match = (table[i].hash == table[i].tag[table[i].hash]) ? 0x1 : 0x0;
-/*		debug(table[i].tag[table[i].hash], "table tag");
-		debug(table[i].match, "table_match");	*/
+
+		/*	Debug	*/
+	/*	char string[] = "table[%d].tag[table[%d].hash]";
+		sprintf(string, "table[%d].tag[table[%d].hash]", i);
+		debug(table[i].tag[table[i].hash], string);			
+		sprintf(string, "table[%d].match", i);
+		debug(table[i].match, string);			*/
 	}
 }
 
@@ -130,25 +137,88 @@ void plru_update(void){
 	if(	table[0].match ){
 		// No change, table[0] is the base predictor (no cache).
 	}
+
+/*	debug(	
+		(table[7].match << 7) 	| 
+		(table[6].match << 6) 	| 
+		(table[5].match << 5)	|
+		(table[4].match << 4) 	| 
+		(table[3].match << 3) 	| 
+		(table[2].match << 2)   |
+		(table[1].match << 1)   |
+		(table[0].match << 0)	, 
+		"All Table Matches");		*/
+	
+/*	for(int i = 0; i<NUM_OF_WAYS; i++){
+		char string[] = "Table %d plru bits";
+		sprintf(string, "Table %d plru bits", i);
+
+		debug(	
+			(plru[table[i].hash][1] << 7) 	| 
+			(plru[table[i].hash][1] << 6) 	| 
+			(plru[table[i].hash][1] << 5)	|
+			(plru[table[i].hash][1] << 4) 	| 
+			(plru[table[i].hash][1] << 3) 	| 
+			(plru[table[i].hash][1] << 2)   |
+			(plru[table[i].hash][1] << 1)   |
+			(plru[table[i].hash][1] << 0)	, 
+			string);
+	}												*/
+
+
 }
 
 void tag_replace(void){
 	for(int i = 0; i < NUM_OF_WAYS; i++){
-		if(!(table[i].hash == table[i].tag[table[i].hash]))
-			if (plru[table[i].hash][0])
-				if (plru[table[i].hash][1])
-					if (plru[table[i].hash][3]) table[1].tag[table[i].hash] = table[i].hash;
-					else table[1].tag[table[i].hash] = table[i].hash;
-				else if (plru[table[i].hash][4]) table[2].tag[table[i].hash] = table[i].hash;
-				else table[3].tag[table[i].hash] = table[i].hash;
-			else if (plru[table[i].hash][5]) table[4].tag[table[i].hash] = table[i].hash;
-			else table[5].tag[table[i].hash] = table[i].hash;
-		else if (plru[table[i].hash][6]) table[6].tag[table[i].hash] = table[i].hash;
-		else table[7].tag[table[i].hash] = table[i].hash;
+		/*	Dynamic Variables	*/
+		unsigned int table_select = 0;				// Selects table for tag replacement.
+		unsigned int *p = plru[table[i].hash];	// Points to the plru bits of the row selected.
+
+		/* Begin Replacement	*/
+		if(!(table[i].hash == table[i].tag[table[i].hash])){
+			
+			table_select = 	( !p[0] && !p[2] && !p[6] )	?	7	:
+							( !p[0] && !p[2] &&  p[6] )	?	6	:
+							( !p[0] &&  p[2] && !p[5] )	?	5	:
+							( !p[0] &&  p[2] &&  p[5] )	?	4	:
+							(  p[0] && !p[1] && !p[4] )	?	3	:
+							(  p[0] && !p[1] &&  p[4] )	?	2	:
+							(  p[0] &&  p[1] && !p[3] )	?	1	:
+															0	;
+			
+			table[table_select].tag[table[i].hash] = table[i].hash;
+		}
+
+		/*	Debug	*/
+	/*	char string[] = "table[i].tag[table[i].hash] - U";
+		sprintf(string, "table[%d].tag[table[%d].hash] - U", i, i);
+		debug(table_select, "Replacement Table");
+		debug(table[i].tag[table[i].hash], string);	*/
 	}
 }
 
+
 bool prediction(void){
+
+	/*	Debug	*/
+		for(int i = 0; i<NUM_OF_WAYS; i++){
+			char string[] = "Table %d prediction bits";
+			sprintf(string, "Table %d prediction bits", i);
+			debug( table[i].prediction[table[i].hash], string);
+		}
+
+		debug(	
+			((0x1 & (table[7].prediction[table[7].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 7) 	| 
+			((0x1 & (table[6].prediction[table[6].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 6) 	| 
+			((0x1 & (table[5].prediction[table[5].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 5)	|
+			((0x1 & (table[4].prediction[table[4].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 4) 	| 
+			((0x1 & (table[3].prediction[table[3].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 3) 	| 
+			((0x1 & (table[2].prediction[table[2].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 2)   |
+			((0x1 & (table[1].prediction[table[1].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 1)   |
+			((0x1 & (table[0].prediction[table[0].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) << 0)	, 
+			"All Tables Prediction Bits");
+
+
 	return	table[7].match ? (0x1 & (table[7].prediction[table[7].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
 			table[6].match ? (0x1 & (table[6].prediction[table[6].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
 			table[5].match ? (0x1 & (table[5].prediction[table[5].hash] >> (ipow(2, PREDICTOR_SIZE) -1))) :
@@ -174,8 +244,9 @@ void update_predictors(bool taken){
 }
 
 void update_path_history(bool taken){
-	if(taken) 	(PATH_HIST_MASK & ((path_history << 1) | SET_LSB));
-	else 		(PATH_HIST_MASK & (path_history << 1));
+	if(taken) 	path_history = (PATH_HIST_MASK & ((path_history << 1) | SET_LSB));
+	else 		path_history = (PATH_HIST_MASK & (path_history << 1));
+	// debug(path_history, "PathHistory \tUpdate");
 }
 
 void debug(unsigned int val, const char *tag){
@@ -189,7 +260,8 @@ void debug(unsigned int val, const char *tag){
 	static int i = 0;
 	static unsigned char header = 0;
 
-	if(tag != "LINE"){
+	if(	(strcmp(tag, "LINE") != 0)	&&
+		(strcmp(tag, "Replacement Table") != 0) ){
 		for(char i=12; i > 0 ; i--){
 			if((val >> (i - 1)) & 0x1) binary[11 - (i-1)] = '1';
 			else binary[11 - (i -1)] = '0';
@@ -205,13 +277,13 @@ void debug(unsigned int val, const char *tag){
 	else{
 		if(header == 0){
 			for(int j = 0; j < i; j++){
-				fprintf(fh, "%-24s\t", tagname[j]);
+				fprintf(fh, "%-32s\t", tagname[j]);
 			}
 			fprintf(fh, "\n");
 			header = 1;
 		}
 		for(int j = 0; j < i; j++){
-				fprintf(fh, "%-24s\t", tagval[j]);
+				fprintf(fh, "%-32s\t", tagval[j]);
 		}
 		fprintf(fh, "\n");
 		i = 0;
