@@ -35,7 +35,7 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 // the branch record (br) and architectural state (os), as well as a third
 // argument (taken) indicating whether or not the branch was taken.
 void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken){
-	update_predictors();
+	update_predictors(taken);
 
 	/*	Debug	*/	debug(0, "NEWLINE");
 }
@@ -137,7 +137,7 @@ bool prediction(void){
 							 (0x1 & (table[0].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) ;
 }
 
-void update_predictors(bool){
+void update_predictors(bool taken){
 	for( int i = (NUM_OF_WAYS -1); i >= 0; i--){
 		if(	table[i].match ){
 			if (table[i].prediction == taken){
