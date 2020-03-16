@@ -15,6 +15,7 @@
 #define HISTORY 0x3F		// 6 bits
 #define PREDICTORS	0x3		// 2 bits
 #define PREDICTOR_BITS	2
+
 #define PREDICTION	0x1
 #define GLOBAL		0xFFFFFFFF
 
@@ -43,10 +44,10 @@ bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os
 	if(!br->is_conditional) return 1;
 	if(br->is_call) return 1;
 	if(br->is_return) return 1;
-	//if(!br->is_indirect && !br->is_conditional); return 1;
 	if(os->num_ops < 2) return 1;
+	
 	// Select adddress bits.
-	address_select = INDEX & (br->instruction_addr >> 2);
+	address_select = INDEX & (br->instruction_addr );
 
 	// Hash with global history
 	history_index = INDEX & ( address_select ^ ( GLOBAL & (path_history >> 18)));
@@ -77,7 +78,7 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 			if(predictor_table[history_table[history_index]] < PREDICTORS ) 	predictor_table[history_table[history_index]]++;
 	} else	if(predictor_table[history_table[history_index]] > 0 ) 				predictor_table[history_table[history_index]]--;
 */
-	if(br->is_conditional && !br->is_return && !br->is_call && (br->is_indirect || br->is_conditional)){
+	if(br->is_conditional && !br->is_return && !br->is_call  && (!(os->num_ops < 2))){
 		if(taken){
 				if(predictor_table[history_index] < PREDICTORS ) 		predictor_table[history_index]++;
 		} else	if(predictor_table[history_index] > 0 ) 				predictor_table[history_index]--;
