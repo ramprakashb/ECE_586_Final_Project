@@ -42,5 +42,12 @@ void hash(void);
 
 void tag_compare(void);
 
+void tag_replace(void);
+
+void plru_update(void);
+
+void update_predictors(bool taken);
+
+
 #endif // PREDICTOR_H_SEEN
 
