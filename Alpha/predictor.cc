@@ -9,17 +9,24 @@
 #include "predictor.h"
 
 /*Variables- gshare*/
-#define BHMASK 0xFFF			//10 bits for branch history
-#define BAMASK 0xFFF			//10 bits for branch Address
-#define PREDICT_SIZE 4*1024		//10 bits for Predictor Table Size
+#define ROWS 16*1024			
+#define INDEX 0x3FFF			// 14 bits
 #define SETLSB 0x1
-#define PATHHISTVAL 0xFFF
+#define HISTORY 0x3F		// 6 bits
+#define PREDICTORS	0x3		// 2 bits
+#define PREDICTOR_BITS	2
+#define PREDICTION	0x1
+#define GLOBAL		0xFFFFFFFF
+
 //#define BS_VERBOSE
 
-static unsigned int xor_output = 0;
-static unsigned int branch_address = 0;
+static unsigned int predictor_index = 0;
+static unsigned int predictor = 0;
+static unsigned int address_select = 0;
 static unsigned int path_history = 0;
-static unsigned int predict_table_g[PREDICT_SIZE] = {0};
+static unsigned int history_table[ROWS] = {0};
+static unsigned int predictor_table[ROWS];
+static unsigned int history_index = 0;
 
 /*function Prototypes- gshare*/
 unsigned int xor_comb(unsigned int a, unsigned int b);
@@ -32,81 +39,56 @@ void debug(unsigned int val, const char *tag);			// prints values in column form
 
 
 bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
-	//Gshare
-	//Get address branch
-	get_branch_address(br);
+	
+	if(!br->is_conditional) return 1;
+	if(br->is_call) return 1;
+	if(br->is_return) return 1;
+	//if(!br->is_indirect && !br->is_conditional); return 1;
+	if(os->num_ops < 2) return 1;
+	// Select adddress bits.
+	address_select = INDEX & (br->instruction_addr >> 2);
 
-	//xor
-	xor_output = xor_comb(path_history, branch_address);
+	// Hash with global history
+	history_index = INDEX & ( address_select ^ ( GLOBAL & (path_history >> 18)));
 
-	//Get Prediction table values
-	return get_predict();
+	// Access predictor index
+	predictor_index = history_index; //HISTORY & history_table[history_index];
+
+	// Access predictor
+	predictor = PREDICTORS & predictor_table[predictor_index];
+
+	// Return prediction
+	return PREDICTION & (predictor >> (PREDICTOR_BITS -1));
 
 }
 
 
-void get_branch_address(const branch_record_c* br)
-{
-	branch_address = (BAMASK & ( br->instruction_addr >> 2));
-	/*	Debug	*/	debug(branch_address, "branch_address_g");
-}
-
-unsigned int xor_comb(unsigned int a, unsigned int b)
-{
-	return  (BHMASK & (a ^ b));
-}
-bool get_predict(void)
-{
-	/*	Debug	*/ 	debug(xor_output, "xor_output");
-	/*	Debug	*/	debug(predict_table_g[xor_output], "predict_table_g[xor]");
-
-    if ((predict_table_g[xor_output] >> 1) & 0x1)	// Return value based on MSb.
-        return true;
-	else
-        return false;
-    
-}
-    
 // Update the predictor after a prediction has been made.  This should accept
 // the branch record (br) and architectural state (os), as well as a third
 // argument (taken) indicating whether or not the branch was taken.
 void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken){
-
-	//Update path history values
-	update_global_branch_history(taken);
-
-	//update predict table
-	update_predict_table(taken);
-
-	/*	Debug	*/	debug(0, "NEWLINE");
-
-}
-
-void update_global_branch_history(bool taken)
-{
-	if(taken)
-		path_history = PATHHISTVAL & ((path_history << 1) | SETLSB);
-	else
-		path_history = PATHHISTVAL & (path_history << 1);
 	
-	/*	Debug	*/	debug(path_history, "path_history");
+	// Update history table
+/*	if(taken)	history_table[history_index] = HISTORY & (history_table[history_index] << 1) | SETLSB;
+	else		history_table[history_index] = HISTORY & (history_table[history_index] << 1) & (HISTORY - 1);
+*/	
+	// Update prediction bits
+/*	if(taken){
+			if(predictor_table[history_table[history_index]] < PREDICTORS ) 	predictor_table[history_table[history_index]]++;
+	} else	if(predictor_table[history_table[history_index]] > 0 ) 				predictor_table[history_table[history_index]]--;
+*/
+	if(br->is_conditional && !br->is_return && !br->is_call && (br->is_indirect || br->is_conditional)){
+		if(taken){
+				if(predictor_table[history_index] < PREDICTORS ) 		predictor_table[history_index]++;
+		} else	if(predictor_table[history_index] > 0 ) 				predictor_table[history_index]--;
+	}
+	// Update global path_history
+	if(taken) 	path_history = GLOBAL & (path_history << 1) | SETLSB;
+	else		path_history = GLOBAL & (path_history << 1) & (GLOBAL - 1);
 
 }
 
-void update_predict_table(bool taken)
-{
-		if(taken)
-        {
-			if(predict_table_g[xor_output] < 0x3)
-			 	predict_table_g[xor_output]++;
-        }
-		else if(predict_table_g[xor_output] > 0x0)
-        {
-				predict_table_g[xor_output]--;
-        }
 
-		/*	Debug	*/	debug(predict_table_g[xor_output], "Predict_table_g[xor]-U");
-}
 
 void debug(unsigned int val, const char *tag){
 	#ifdef	BS_VERBOSE
