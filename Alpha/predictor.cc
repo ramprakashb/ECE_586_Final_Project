@@ -9,15 +9,19 @@
 #include "predictor.h"
 
 /*	Macros	*/
+#define NUM_OF_WAYS		8
 #define PREDICTOR_SIZE	3		// Size in bits.
+#define WORD			2		// Used for PC Word Alignment.
+#define PCMASK			32		// Used to mask PC bits for use with hash.
 
 /*	Global Variables	*/
 unsigned int path_history;
 unsigned int pc_select;
-_table table[8];
+_table table[NUM_OF_WAYS];
 
 bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
-
+	initialize(br); 
+	hash();
 	return prediction();
 }
 
@@ -34,6 +38,23 @@ void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os
 ************ Function ***************
 *********** Definitions *************
 ************************************/
+void initialize(const branch_record_c* br ){
+	unsigned int base_value = (PCMASK / NUM_OF_WAYS);
+
+	pc_select = (PCMASK & (br->instruction_addr >> WORD));
+
+	table[0].path_mask = 0;
+
+	for( int i = 1; i < NUM_OF_WAYS; i++){
+		table[i].path_mask = (base_value * i) + base_value;
+	}
+}
+
+void hash(void){
+	for(int i = 0; i < NUM_OF_WAYS; i++ ){
+		table[i].hash = ( pc_select ^ (path_history & table[i].path_mask));
+	}
+}
 
 bool prediction(void){
 	return	table[7].match ? (0x1 & (table[7].prediction >> (ipow(2, PREDICTOR_SIZE) -1))) :

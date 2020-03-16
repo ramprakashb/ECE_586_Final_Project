@@ -36,5 +36,9 @@ unsigned int ipow(unsigned int base, unsigned int exponent);    // For ease-of-u
 
 bool prediction(void);
 
+void initialize(const branch_record_c* br );
+
+void hash(void);
+
 #endif // PREDICTOR_H_SEEN
 
