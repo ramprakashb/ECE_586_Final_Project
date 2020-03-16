@@ -1,11 +1,14 @@
 /* Author: Mark Faust;   
  * Description: This file defines the two required functions for the branch predictor.
+ * Modified by: Kamali, Michael, and Ram
+ * ECE 586, Winter 2020
+ * Portland State University
 */
 
 #include "predictor.h"
 
-#define LHTADDRMASK 1023 // Selects bits 0-9
-#define GPTADDRMASK 4095 // Selects bits 0-12
+#define LHTADDRMASK 0x3FF // Selects bits 0-9
+#define GPTADDRMASK 0xFFF // Selects bits 0-12
 #define LHTHEIGHT 1024
 #define LHTWIDTH 10
 #define LPTHEIGHT 1024
@@ -14,477 +17,235 @@
 #define GPTWIDTH 2
 #define CPHEIGHT 4096
 #define CPWIDTH 2
-#define LHTVALMASK 1023    ///local history table's 10 bits 
+#define LHTVALMASK 0x3FF    ///local history table's 10 bits
+#define PATHHISTVAL 0xFFF
+#define SETLSB 0x1
+#define CLRLSB 0xFFE
 
-//new changes
- unsigned int local_history_table[(LHTHEIGHT-1):0];
- unsigned int local_prediction_table[(LPTHEIGHT-1):0];
- unsigned int global_prediction_table[(GPTHEIGHT-1):0];
- unsigned int choice_prediction_table[(CPHEIGHT-1):-];
-int local_history_table_func(unsigned int);
-int local_predictor(unsigned int);
-int global_predictor(unsigned int);
-int choice_predictor(unsigned int);
-bool mux_logic(unsigned int,unsigned int,unsigned int);
-unsigned int local_history_value = 0;
+// Debug
+//#define BS_VERBOSE
+#define PGL 1
+#define PGP 2
+#define PLP 3
+#define PLH 4
+#define TAKEN 5
+#define ULP 6
+#define ULH 7
+#define UGP 8
+#define UGL 9
+#define LINE 10
+#define HEAD 11
+#define NEWLINE 12
+#define BINDEX	13
+#define	PATHH	14
 
+// Data Structures
+static unsigned int local_history_table[LHTHEIGHT] = {0};
+static unsigned int local_prediction_table[LPTHEIGHT] = {0};
+static unsigned int global_prediction_table[GPTHEIGHT] = {0};
+static unsigned int choice_prediction_table[CPHEIGHT] = {0};
 
-
- unsigned int local_history_table[(LHTHEIGHT-1)];
- unsigned int local_prediction_table[(LPTHEIGHT-1)];
- unsigned int global_prediction_table[(GPTHEIGHT-1)];
- unsigned int choice_prediction_table[(CPHEIGHT-1)];
- unsigned int path_history;
-
-    bool PREDICTOR::get_prediction(const branch_record_c* br, const op_state_c* os)
-        {
-		/* replace this code with your own
-            bool prediction = false;
-
-			printf("%0x %0x %1d %1d %1d %1d ",br->instruction_addr,
-			                                br->branch_target,br->is_indirect,br->is_conditional,
-											br->is_call,br->is_return);
-											
-            if (br->is_conditional)
-                prediction = true;
-		*/
-
-		unsigned int pc;	
-        unsigned int entry_avail;    // update if a entry is available in the local history table
-        unsigned int local_predict_val;
-        unsigned int global_predict_val;
-        unsigned int path_history_val;
-        unsigned int choice_predict_val;
-        bool prediction;
-		//Choice Prediction
-		//Local Predictor
-		//local history table
-        pc = ((br->instruction_addr)>>2) & LHTADDRMASK; //PC[11:2]
-
-        //12 bits of path history:
-        path_history_val = path_history & GPTADDRMASK;
-
-        //get the 10 bit value from the local history table ->i/p: PC value o/p:10 bit value indicating the local_history
-        //local_history_table() 
-        entry_avail=local_history_table_func(pc);//check if the current branch is available in local history table
-
-        //get the local prediction state value from the local predictor table: i/p: 10 bit value calculated above, o/p: state values in the table
-        if((entry_avail>=0)&&(entry_avail<=8)){
-            local_predict_val = local_predictor(pc);
-        }
+/* Variables	*/
+static unsigned int local_history_table_val = 0;
+static unsigned int local_prediction_table_val = 0;
+static unsigned int global_prediction_table_val = 0;
+static unsigned int choice_prediction_table_val = 0;
+static unsigned int b_index = 0;
+static unsigned int path_history = 0;
+long unsigned int t = 0;
 
 
-        //get the path history Path_history[11:0]: o/p: 12 bit path history value in the table
-        //get_path_history();
-        //use path history variable
+/* Function Prototypes	*/
+void debug(unsigned int val, int tag);
+void IndexFromPC(const branch_record_c* br);
+void LocalPrediction(void);
+void GlobalPrediction(void);
+void ChoicePrediction(void);
+bool Multiplexer(const branch_record_c* br);
+
+void LocalHistoryUpdate(bool taken);
+void LocalPredictionUpdate(bool taken);
+void GlobalPredictionUpdate(bool taken);
+void PredictionUpdate(bool taken);
+void PathHistoryUpdate(bool taken);
 
 
-		//Global Predictor: i/p: return value from the get_path_history(), o/p: 2 bit global state output.
-		global_predict_val = global_predictor(path_history_val);
+bool PREDICTOR::get_prediction(const branch_record_c* br  , const op_state_c* os ){
 
-
-        //Choice predictor: i/p: return value from the get_path_history(), o/p: choice predicted.
-        choice_predict_val = choice_predictor(path_history_val); //choose between global and local predictor
-
-        //mux logic: i/p: output of the local_predictor() function, output of the global_predictor(), output of hte path_history fuction function o/p: branch predicted value 
-        prediction = mux_logic(choice_predict_val, global_predict_val, local_predict_val);
-
-
-        //printf("prediction=%d, br->is_conditional=%d\n",prediction,br->is_conditional);
-        return prediction;   // true for taken, false for not taken
-        }
-
-    int local_history_table_func(unsigned int pc)
-    {
-        int i;
-        int set;
-            if(local_history_table[pc] == 0)
-                set = 1;
-            else
-                set =  0;
-    
-        if(set)
-            return 1;
-        else    
-            return 0;
-    }
-    
-    int local_predictor(unsigned int pc)
-    {
-        if((local_prediction_table[pc]<=7)&&(local_prediction_table[pc]>=0)) //Check if the values in the prediction table lies between 000 to 111
-        {
-            switch(local_prediction_table[pc])
-            {
-            case 0://if the local prediction table contains 000 (weakly taken)
-                return 0;
-            case 1://if the local prediction table contains 001
-                return 1;
-            case 2://if the local prediction table contains 010
-                return 2;
-            case 3://if the local prediction table contains 011
-                return 3;
-            case 4://if the local prediction table contains 100
-                return 4;
-            case 5://if the local prediction table contains 101
-                return 5;
-            case 6://if the local prediction table contains 110
-                return 6;
-            case 7://if the local prediction table contains 111 (strongly taken)
-                return 7;
-            }
-        }
-        return 8; //indicating value not available in the local predictor table
-    }
-
-    int global_predictor(unsigned int path_history_val)
-    {
-        if((global_prediction_table[path_history_val]<=3)&&(global_prediction_table[path_history_val]>=0)) //Checking if there is a entry in the global prediction table
-        {
-            switch(global_prediction_table[path_history_val])
-            {
-            case 0://if the local prediction table contains 000 (weakly taken)
-                return 0;
-            case 1://if the local prediction table contains 001
-                return 1;
-            case 2://if the local prediction table contains 010
-                return 2;
-            case 3://if the local prediction table contains 011
-                return 3;
-            }
-        }
-        return 8;
-    }
-
-
-
-    int choice_predictor(unsigned int path_history_val)
-    {
-        if((choice_prediction_table[path_history_val]<=4)&&(choice_prediction_table[path_history_val]>=0))
-        {
-            switch(choice_prediction_table[path_history_val])
-            {
-            case 0://if the local prediction table contains 000 (weakly taken)
-                return 0;
-            case 1://if the local prediction table contains 001
-                return 0;
-            case 2://if the local prediction table contains 010
-                return 1;
-            case 3://if the local prediction table contains 011
-                return 1;
-            }
-        }
-        return 8;
-    }
-
-    bool mux_logic(unsigned int choice_predict_val, unsigned int global_predict_val, unsigned int local_predict_val)
-    {
-        int mux_local_output;
-        int mux_global_output;
-        bool return_val;
-        switch(choice_predict_val)
-        {
-            case 0:
-                    mux_local_output = local_predict_val;
-            case 1:
-                    mux_global_output = global_predict_val;
-        }
-        switch(mux_local_output)
-        {
-            case 0:
-                   return_val = false; //return false if branch not taken
-            case 1:
-                   return_val = false;
-            case 2:
-                   return_val = true;
-            case 3:
-                   return_val = true;
-        }
-        switch(mux_global_output)
-        {
-            case 0:
-                   return_val = false;
-            case 1:
-                   return_val = false;
-            case 2:
-                   return_val = false;
-            case 3:
-                   return_val = false;
-            case 4:
-                   return_val = true;
-            case 5:
-                   return_val = true;
-            case 6:
-                   return_val = true;
-            case 7:
-                   return_val = true;
-        }
-        return return_val;
-    }
-
-
-
-    // Update the predictor after a prediction has been made.  This should accept
-    // the branch record (br) and architectural state (os), as well as a third
-    // argument (taken) indicating whether or not the branch was taken.
-    void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken)
-        {
-         /* replace this code with your own */
-			
-        unsigned int pc; 
-        int temp;
-        pc = ((br->instruction_addr)>>2) & LHTADDRMASK;
-        path_history = ((taken)>>2) & GPTADDRMASK;                        //12 bits of PathHistory
-
-        
-        //update local predictor: i/p: output of the local_history_table() function, 
-        //update_local_predictor
-        update_local_predict_table(local_history_table[pc]);
-    
-
-		// Local Table Update: i/p: pc[11:0] 
-        //update_local_history_table();
-
-        update_local_history()
-        
-        //i/p: output of the get_path_history() function, 
-        //update_global_predictor();
-        
-        //i/p: output of the get_path_history() function.
-        //update_choice_predictor
-
-        //update path_history(): i/p: taken
-        //update_path_history(taken);/////////////////////
-		
-		
-		
-		
-        
-	int update_local_history_table(int pc)
-    {
-    }
-		
-		
-	int update_local_predictor(int index)                                            
-	if(entry_avail == -1 || (local_predict_value >= -1 && local_predict_value <= 8))                              ///range doubt
-	{
-    switch(local_prediction_table[index])
-    {
-            case 0:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 0;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 1;
-            }
-
-            case 1:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 0;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 2;
-            }
-
-            case 2:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 1;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 3;
-            }
-
-            case 3:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 2;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 4;
-            }
-
-            case 4:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 3;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 5;
-            }
-
-            case 5:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 4;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 6;
-            }
-
-            case 6:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 4;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 6;
-            }
-
-            case 7:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 6;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 8;
-            }
-
-            case 8:
-            if(taken == 0)
-            {
-            local_prediction_table[local_history_table] = 7;
-            }
-            else if(taken == 1)
-            {
-            local_prediction_table[local_history_table] = 8;
-            }
-            }
-			
-		}
-		}   
-        }                                                                                                  
-		 
-        int update_global_predictor(int path_history)
-		{
-            switch(global_prediction_table[path_history])
-            {
-            case 0:
-            if(taken == 0)
-            {
-            global_prediction_table[path_history] = 0;
-            }
-            else if(taken == 1)
-            {
-            global_prediction_table[path_history] = 1;
-            }
-
-            case 1:
-            if(taken == 0)
-            {
-            global_prediction_table[path_history] = 0;
-            }
-            else if(taken == 1)
-            {
-            global_prediction_table[path_history] = 2;
-            }
-
-            case 2:
-            if(taken == 0)
-            {
-            global_prediction_table[path_history] = 1;
-            }
-            else if(taken == 1)
-            {
-            global_prediction_table[path_history] = 3;
-            }
-
-            case 3:
-            if(taken == 0)
-            {
-            global_prediction_table[path_history] = 2;
-            }
-            else if(taken == 1)
-            {
-            global_prediction_table[path_history] = 3;
-            }
-
-            }
-		
-		}
-		
-		int update_choice_predictor(int path_history)
-		{
-		   switch(global_choice_table[path_history])
-            {
-            case 0:
-            if(taken == 0)
-            {
-            global_choice_table[path_history] = 0;
-            }
-            else if(taken == 1)
-            {
-            global_choice_table[path_history] = 1;
-            }
-
-            case 1:
-            if(taken == 0)
-            {
-            global_choice_table[path_history] = 0;
-            }
-            else if(taken == 1)
-            {
-            global_choice_table[path_history] = 2;
-            }
-
-            case 2:
-            if(taken == 0)
-            {
-            global_choice_table[path_history] = 1;
-            }
-            else if(taken == 1)
-            {
-            global_choice_table[path_history] = 3;
-            }
-
-            case 3:
-            if(taken == 0)
-            {
-            global_choice_table[path_history] = 2;
-            }
-            else if(taken == 1)
-            {
-            global_choice_table[path_history] = 3;
-            }
-
-            if(global_choice_table == 1 || 2)                         //return to mux to choose between local and global predictors, make changes in mux
-            {
-               return 0;
-            }
-            else if(global_choice_table == 3 || 4 )
-            {
-                return 1;
-            }
-
-
-            }
-		}
-		
-		int update_path_history(bool taken)                     //update path history(taken);
-		{
-            temp = path_history << 1
-            path_history = temp | taken;                        //shift the path history by left 1 time and add taken
-        }
-
-        }
-		
-        printf("%1d\n",taken);
-		
-		
-        
-
-
-        
-
-  
-
+	IndexFromPC(br);
 	
+	LocalPrediction();
+
+	GlobalPrediction();
+
+	ChoicePrediction();
+
+	/* Debug	*/
+	t++;
+	if(t == 1){ debug (0, HEAD); debug( 0, NEWLINE);}
+	debug( 0, LINE);
+	debug( b_index, BINDEX);
+	debug( choice_prediction_table[path_history], PGL);
+	debug( global_prediction_table[path_history], PGP);
+	debug( local_prediction_table[local_history_table[b_index]], PLP);
+	debug( local_history_table[b_index], PLH );
+	debug( path_history, PATHH);
+
+	return Multiplexer(br);
+
+}
+    
+// Update the predictor after a prediction has been made.  This should accept
+// the branch record (br) and architectural state (os), as well as a third
+// argument (taken) indicating whether or not the branch was taken.
+void PREDICTOR::update_predictor(const branch_record_c* br, const op_state_c* os, bool taken){
+	
+	/* Debug	*/	debug(taken, TAKEN);
+	LocalHistoryUpdate(taken);
+
+	LocalPredictionUpdate(taken);
+
+	GlobalPredictionUpdate(taken);
+
+	PredictionUpdate(taken);
+
+	PathHistoryUpdate(taken);
+
+}
+
+void IndexFromPC(const branch_record_c* br) {
+	b_index = (LHTADDRMASK & (br->instruction_addr >> 0));
+}
+
+void LocalPrediction(void) {
+	local_history_table_val = local_history_table[b_index];
+	local_prediction_table_val = (0x1 & (local_prediction_table[local_history_table_val] >> (LPTWIDTH - 1)));
+}
+
+void GlobalPrediction(void) {
+	global_prediction_table_val = (0x1 & (global_prediction_table[path_history] >> (GPTWIDTH - 1)));
+}
+
+void ChoicePrediction(void) {
+	choice_prediction_table_val = (0x1 & (choice_prediction_table[path_history] >> (CPWIDTH - 1)));
+}
+
+bool Multiplexer(const branch_record_c* br) {
+	//if (br->branch_target < br->instruction_addr) return 1;				// HAS NEGATIVE EFFECT ON HIT RATE	
+	//if (!(br->is_conditional) || br->is_call || br->is_return) return 1;	// HAS NO EFFECT ON HIT RATE
+	return	choice_prediction_table_val ?	// GLOBAL_PREDICTION or LOCAL_PREDICTION ? 
+		global_prediction_table_val :	// GLOBAL_PREDICTION MSb 1
+		local_prediction_table_val; 	// LOCAL_PREDICTION	MSb 0
+}
+
+void LocalHistoryUpdate(bool taken) {
+	local_history_table[b_index] = taken ?
+		(LHTVALMASK & ((local_history_table_val << 1) | SETLSB)) :		// Shift in 1
+		(LHTVALMASK & ((local_history_table_val << 1) & CLRLSB));		// Shift in 0 
+	/*	Debug	*/	debug(local_history_table[b_index], ULH);
+}
+
+void LocalPredictionUpdate(bool taken) {
+	if (taken) {
+		if (local_prediction_table[local_history_table_val] < 0x7)
+			local_prediction_table[local_history_table_val]++;
+	}
+	else if (local_prediction_table[local_history_table_val] > 0x0)
+		local_prediction_table[local_history_table_val]--;
+	/*	Debug	*/	debug(local_prediction_table[local_history_table_val], ULP);
+}
+
+
+void GlobalPredictionUpdate(bool taken) {
+	if (taken) {
+		if (global_prediction_table[path_history] < 0x3)
+			global_prediction_table[path_history]++;
+	}
+	else if (global_prediction_table[path_history] > 0x0)
+		global_prediction_table[path_history]--;
+	/*	Debug	*/	debug((global_prediction_table[path_history]), UGP);
+}
+
+void PredictionUpdate(bool taken) {
+	if (global_prediction_table_val == taken) {					// ?/?
+		if (!(local_prediction_table_val == taken)) {				// 1/?
+			if (choice_prediction_table[path_history] < 0x3)		// 1/0
+				choice_prediction_table[path_history]++;
+		}
+	}
+	else if (local_prediction_table_val == taken) { 				// 0/?
+		if (choice_prediction_table[path_history] > 0x0)		// 0/1
+			choice_prediction_table[path_history]--;
+	}
+	/*	Debug	*/	debug(choice_prediction_table[path_history], UGL);
+}
+
+void PathHistoryUpdate(bool taken) {
+	path_history = taken ?
+		(PATHHISTVAL & ((path_history << 1) | SETLSB)) :		// Shift in 1
+		(PATHHISTVAL & ((path_history << 1) | CLRLSB));		// Shift in 0 
+	/*	Debug	*/	debug(path_history, PATHH);
+	/*	Debug	*/	debug(0, NEWLINE);
+}
+
+void debug(unsigned int val, int tag){
+	#ifdef	BS_VERBOSE
+	FILE * fh = NULL;
+	fh = fopen("log.txt", "a");
+	
+	char binary[13] = {0};
+	
+	if(tag != LINE){
+		for(char i=12; i > 0 ; i--){
+			if((val >> (i - 1)) & 0x1) binary[11 - (i-1)] = '1';
+			else binary[11 - (i -1)] = '0';
+		}
+	}
+
+
+	switch(tag){
+		case PGL:	fprintf(fh, "%s\t", binary);
+			break;
+		case PGP:	fprintf(fh, "%s\t", binary);
+			break;
+		case PLP:	fprintf(fh, "%s\t", binary);
+			break;
+		case PLH:	fprintf(fh, "%s\t", binary);
+			break;
+		case TAKEN:	fprintf(fh, "%-12u\t", val);
+			break;
+		case ULP:	fprintf(fh, "%s\t", binary);
+			break;
+		case ULH:	fprintf(fh, "%s\t", binary);
+			break;
+		case UGP:	fprintf(fh, "%s\t", binary);
+			break;
+		case UGL:	fprintf(fh, "%s\t", binary);
+			break;
+		case PATHH:	fprintf(fh, "%s\t", binary);
+			break;
+		case NEWLINE:fprintf(fh, "\r\n");
+			break;
+		case LINE:	fprintf(fh, "%-12lu\t", t);
+			break;
+		case BINDEX:	fprintf(fh, "%s\t", binary);
+			break;
+		case HEAD:
+					fprintf(fh,"%-12s\t",			 "LINE");
+					fprintf(fh,"%-12s\t",			 "BINDEX");
+					fprintf(fh,"%-12s\t",			 "P-Choice");
+					fprintf(fh,"%-12s\t",			 "P-Global P");
+					fprintf(fh,"%-12s\t",			 "P-Local P");
+					fprintf(fh,"%-12s\t",			 "P-LocalHist");
+					fprintf(fh,"%-12s\t",			 "P-Path Hist");
+					fprintf(fh,"%-12s\t",			 "taken");
+					fprintf(fh,"%-12s\t",			 "U-G|L");
+					fprintf(fh,"%-12s\t",			 "U-LocalHist");
+					fprintf(fh,"%-12s\t",			 "U-LocalPred");
+					fprintf(fh,"%-12s\t",			 "U-GlobalPred");
+					fprintf(fh,"%-12s",			 "U-Path Hist");
+			break;
+	} 
+	fclose(fh);
+	#endif
+}
